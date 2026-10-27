@@ -50,7 +50,7 @@ def analyze(project, manager, assets, asr, ai=None, settings=None, force=False, 
             project.matches = [by_index[i] for i in sorted(by_index)]
             project.analysis_note = '完成本機時間分析及 AI 語意比對；所有語音刪除預設保留，請逐項確認。'
         except AIError as exc:
-            project.analysis_note = str(exc) + ' 已保留本機停頓、重講分析，可先人工確認。'
+            project.analysis_note = 'AI 文字語意比對未完成：' + str(exc) + ' 已保留本機停頓、重講分析，可先人工確認。'
             # Do not cache a failed semantic call as a successful analysis.
             project.analysis_signature = ''
             return manager.save(project)

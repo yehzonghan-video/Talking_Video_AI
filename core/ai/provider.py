@@ -1,5 +1,6 @@
 """Only this module knows the Gemini SDK. Providers return validated models."""
 import json
+import hashlib
 import copy
 import logging
 from logging.handlers import RotatingFileHandler
@@ -14,6 +15,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Protocol, TypeVar, Sequence
 from pydantic import BaseModel, ValidationError
+from core.ai.diagnostics import api_diagnostic
 
 T = TypeVar("T", bound=BaseModel)
 DEFAULT_MODELS = ('gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite')
@@ -23,6 +25,11 @@ LOGGER = logging.getLogger(__name__)
 def configure_call_logging(path: Path) -> None:
     """Own rotating audit stream only; never enable SDK/HTTP body logging."""
     path = Path(path).resolve()
+    if not any(getattr(h, '_safe_gemini_console', False) for h in LOGGER.handlers):
+        console = logging.StreamHandler()
+        console._safe_gemini_console = True
+        console.setFormatter(logging.Formatter('%(message)s'))
+        LOGGER.addHandler(console)  # Visible in Community Cloud's server logs.
     if any(isinstance(h, RotatingFileHandler) and h.baseFilename == str(path) for h in LOGGER.handlers):
         return
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -74,6 +81,9 @@ def classify(exc: Exception) -> Failure:
         code = int(getattr(exc, 'code', 0)) or None
     except (ValueError, TypeError):
         code = None
+    if code == 400:
+        cause = api_diagnostic(exc)['cause']
+        return Failure('invalid_schema' if cause == 'schema_complexity' else cause, code)
     if code == 429:
         # SDK 2.29 exposes the response JSON as `details`, not response_json.
         body = getattr(exc, 'details', None) or getattr(exc, 'response_json', None) or {}
@@ -123,7 +133,12 @@ def failure_message(failure: Failure) -> str:
         'daily_quota': '每日配額或帳戶額度已耗盡，已停止重試及模型切換；請待額度重設或由管理者檢查方案。',
         'rate_limit': '短期速率限制（429）重試後仍未解除，請稍後再試；不會以切換模型繼續消耗額度。',
         'unknown_quota': '遇到429但無法確認限制類型，已停止重試及模型切換；請由管理者檢查額度。',
-        'invalid_request': '請求或模型設定無效（400），請檢查設定。',
+        'invalid_request': 'Gemini 拒絕這次請求（400），服務未提供更細的原因。請依診斷編號查閱伺服器日誌。',
+        'invalid_schema': 'Gemini 拒絕結構化回傳格式設定（400），請由管理者檢查 JSON Schema；這不是影片損壞。',
+        'model_unsupported': '目前模型不支援這次要求的輸入或輸出方式（400），請由管理者確認模型能力。',
+        'invalid_audio': 'API 拒絕音訊格式或 MIME 類型（400），請由管理者檢查音訊請求。',
+        'invalid_parameter': 'Gemini 拒絕部分請求參數（400），請由管理者依診斷編號檢查伺服器日誌。',
+        'request_too_large': '送出的內容超過 API 大小或文字長度限制（400），請縮短本次分析內容。',
         'authentication': '金鑰驗證失敗（401），請檢查設定。',
         'permission': '金鑰權限不足（403），請檢查設定。',
         'model_unavailable': '找不到設定的模型（404），請由管理者調整允許清單。',
@@ -173,7 +188,7 @@ class GeminiProvider:
         self.model = self.models[0]
         self.last_model = None
 
-    def _audit(self, request_id, model, attempt, failure, started, total_started):
+    def _audit(self, request_id, model, attempt, failure, started, total_started, metadata=None, diagnostic=None):
         LOGGER.info(json.dumps({
             'timestamp': datetime.now(timezone.utc).isoformat(), 'request_id': request_id,
             'model': model.replace(self.api_key, '[REDACTED]') if self.api_key else model,
@@ -181,6 +196,7 @@ class GeminiProvider:
             'error_type': failure.kind if failure else None, 'http_status': failure.code if failure else 200,
             'elapsed_ms': round((time.monotonic() - started) * 1000, 2),
             'total_elapsed_ms': round((time.monotonic() - total_started) * 1000, 2),
+            'request': metadata or {}, 'diagnostic': diagnostic,
         }, ensure_ascii=False))
 
     def generate(self, instruction: str, payload: dict, schema: type[T]) -> T:
@@ -191,8 +207,15 @@ class GeminiProvider:
             from google import genai
             from google.genai import types
             contents = json.dumps(payload, ensure_ascii=False)  # Freeze context once for every attempt.
-            schema_json = schema.model_json_schema()
+            schema_json = getattr(schema, 'gemini_json_schema', schema.model_json_schema)()
             request_id, total_started = uuid4().hex, time.monotonic()
+            metadata = {
+                'operation': {'SemanticPlan': 'video_semantic_alignment', 'TitleResult': 'title_generation',
+                              'ScriptResult': 'script_generation', 'RevisionResult': 'script_revision'}.get(schema.__name__, 'structured_generation'),
+                'input_type': 'text', 'media_parts': 0, 'input_bytes': len(contents.encode('utf-8')),
+                'response_mime_type': 'application/json',
+                'schema_sha256': hashlib.sha256(json.dumps(schema_json, sort_keys=True).encode()).hexdigest(),
+            }
             last_failure = Failure('unknown')
             # SDK 2.29's optional HttpRetryOptions can add 5 attempts. Explicitly
             # disable it; quota-aware retries and failover have exactly one owner.
@@ -205,6 +228,7 @@ class GeminiProvider:
                         if remaining <= 0:
                             raise AIError(failure_message(Failure('budget')))
                         started = time.monotonic()
+                        diagnostic = None
                         try:
                             response = client.models.generate_content(model=model, contents=contents,
                                 config=types.GenerateContentConfig(system_instruction=instruction,
@@ -212,6 +236,7 @@ class GeminiProvider:
                                     http_options=types.HttpOptions(timeout=max(1, int(min(self.request_timeout, remaining) * 1000)), retry_options=no_retry)))
                         except Exception as exc:
                             last_failure = classify(exc)
+                            diagnostic = api_diagnostic(exc)
                         else:
                             try:
                                 result = schema.model_validate_json(response.text or '')
@@ -219,14 +244,14 @@ class GeminiProvider:
                                 last_failure = Failure('format', 200)
                             else:
                                 self.last_model = model
-                                self._audit(request_id, model, attempt + 1, None, started, total_started)
+                                self._audit(request_id, model, attempt + 1, None, started, total_started, metadata)
                                 return result
-                        self._audit(request_id, model, attempt + 1, last_failure, started, total_started)
+                        self._audit(request_id, model, attempt + 1, last_failure, started, total_started, metadata, diagnostic)
                         transient = last_failure.kind in ('unavailable', 'server_error', 'timeout', 'network', 'rate_limit')
                         if not transient:
                             if last_failure.kind in ('format', 'model_unavailable'):
                                 break  # One malformed response / unavailable model, then next allowed model.
-                            raise AIError(failure_message(last_failure))
+                            raise AIError(failure_message(last_failure) + f' 診斷編號：{request_id}')
                         if attempt >= self.max_retries:
                             if last_failure.kind == 'rate_limit':
                                 raise AIError(failure_message(last_failure))
@@ -244,7 +269,7 @@ class GeminiProvider:
             # Never expose SDK exceptions, tracebacks, URLs, prompts or response bodies.
             failure = classify(exc)
             if 'request_id' in locals():
-                self._audit(request_id, self.model, 0, failure, total_started, total_started)
+                self._audit(request_id, self.model, 0, failure, total_started, total_started, metadata, api_diagnostic(exc))
             raise AIError(failure_message(failure)) from None
 
 

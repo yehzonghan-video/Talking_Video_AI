@@ -25,6 +25,17 @@ class SemanticPlan(StrictModel):
     suggestions: list[SemanticSuggestion] = Field(max_length=150)
     matches: list[SemanticMatch] = Field(max_length=300)
 
+    @classmethod
+    def gemini_json_schema(cls) -> dict:
+        # Nested maxItems (150 × 30, plus 300 matches) can make Gemini's grammar
+        # exceed its serving limit. Keep every original bound in local validation.
+        def simplify(node):
+            if isinstance(node, dict):
+                return {key: simplify(value) for key, value in node.items()
+                        if key not in ('maxItems', 'minItems')}
+            return [simplify(value) for value in node] if isinstance(node, list) else node
+        return simplify(cls.model_json_schema())
+
 
 def local_plan(script: str, transcript: Transcript, silences, settings: AnalysisSettings, duration: float):
     decisions = detect_repetitions(transcript)

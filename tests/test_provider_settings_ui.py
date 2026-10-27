@@ -115,7 +115,8 @@ def test_rotating_audit_file_is_idempotent_and_excludes_content(tmp_path, sdk):
     try:
         module.configure_call_logging(path)
         module.configure_call_logging(path)
-        assert len(logger.handlers) == len(original_handlers) + 1
+        assert len(logger.handlers) == len(original_handlers) + 1 + int(not any(
+            getattr(h, '_safe_gemini_console', False) for h in original_handlers))
         sdk.outcomes = [title_response()]
         from core.ai.title_generator import TitleResult
         GeminiProvider('private-key').generate('private-prompt', {'script': 'private-script'}, TitleResult)
