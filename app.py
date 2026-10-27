@@ -6,7 +6,8 @@ from core.storage.project_manager import StorageError
 from core.storage.schemas import Draft
 from core.topics.combinations import ExhaustedTopics
 from core.workflow import WorkflowError
-from ui import topics, editor, library
+from core.video.errors import VideoError
+from ui import topics, editor, library, video
 from ui.settings import services
 from ui.state import initialize, switch, persist
 
@@ -26,7 +27,7 @@ def main():
     initialize(s)
     with st.sidebar:
         st.markdown("### 製作流程")
-        page = st.radio("前往", ["AI 選題", "腳本編輯", "腳本資料庫"], label_visibility="collapsed")
+        page = st.radio("前往", ["AI 選題", "腳本編輯", "腳本資料庫", "AI 影片粗剪"], index=3 if st.query_params.get('video') else 0, key='navigation', label_visibility="collapsed")
         st.divider()
         st.info("目前資料保存在本機／目前雲端主機。雲端重啟或重新部署可能遺失，請定期下載 JSON 備份。")
         if not s.provider.api_key:
@@ -39,13 +40,13 @@ def main():
                 if st.button(draft.title or "未命名草稿", key="resume_" + token):
                     switch(s, draft, token)
             st.caption("重新整理會依網址恢復草稿；請勿把含草稿識別碼的網址分享給他人。")
-    {"AI 選題": topics.render, "腳本編輯": editor.render, "腳本資料庫": library.render}[page](s)
+    {"AI 選題": topics.render, "腳本編輯": editor.render, "腳本資料庫": library.render, "AI 影片粗剪": video.render}[page](s)
     persist(s)
 
 
 try:
     main()
-except (AIError, StorageError, ExhaustedTopics, WorkflowError) as exc:
+except (AIError, StorageError, ExhaustedTopics, WorkflowError, VideoError) as exc:
     st.error(str(exc))
 except (ValueError, ValidationError) as exc:
     st.error("資料驗證未通過，請檢查輸入或備份檔案。現有內容已保留。")

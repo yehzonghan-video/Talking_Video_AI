@@ -8,3 +8,9 @@ data/*
 !data/.gitkeep
 artifacts/
 .tmp/
+tools/ffmpeg/
+models/
+*.mp4
+*.mov
+*.wav
+*.m4a
