@@ -151,6 +151,7 @@ class GeminiProvider:
                  request_timeout: float = 60, max_elapsed: float = 180):
         self.api_key = api_key
         self.models = model_list(models if models is not None else [model] if model is not None else DEFAULT_MODELS)
+        self.allowed_models = self.models
         self.model = self.models[0]  # Backward-compatible configured primary model.
         if isinstance(max_retries, bool) or not isinstance(max_retries, int) or not 0 <= max_retries <= 3:
             raise ValueError('GEMINI_MAX_RETRIES 必須為0至3。')
@@ -160,6 +161,17 @@ class GeminiProvider:
         self.max_retries, self.initial_delay, self.max_delay = max_retries, initial_delay, max_delay
         self.request_timeout, self.max_elapsed = request_timeout, max_elapsed
         self.last_model: str | None = None
+
+    def prefer_model(self, model: str | None = None, *, fallback: bool = True) -> None:
+        """Change this provider's order only; never expand the administrator allowlist."""
+        if model is not None and model not in self.allowed_models:
+            raise AIError('只能選擇管理者已允許的模型。')
+        if model is None:
+            self.models = self.allowed_models
+        else:
+            self.models = (model, *(m for m in self.allowed_models if m != model)) if fallback else (model,)
+        self.model = self.models[0]
+        self.last_model = None
 
     def _audit(self, request_id, model, attempt, failure, started, total_started):
         LOGGER.info(json.dumps({

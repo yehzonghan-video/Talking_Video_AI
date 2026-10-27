@@ -8,7 +8,7 @@ from core.topics.combinations import ExhaustedTopics
 from core.workflow import WorkflowError
 from core.video.errors import VideoError
 from ui import topics, editor, library, video
-from ui.settings import services
+from ui.settings import services, render_model_selector
 from ui.state import initialize, switch, persist
 
 st.set_page_config(page_title="口播企劃室", page_icon="✦", layout="wide")
@@ -29,6 +29,7 @@ def main():
         st.markdown("### 製作流程")
         page = st.radio("前往", ["AI 選題", "腳本編輯", "腳本資料庫", "AI 影片粗剪"], index=3 if st.query_params.get('video') else 0, key='navigation', label_visibility="collapsed")
         st.divider()
+        render_model_selector(s.provider)
         st.info("目前資料保存在本機／目前雲端主機。雲端重啟或重新部署可能遺失，請定期下載 JSON 備份。")
         if not s.provider.api_key:
             st.warning("尚未設定 AI 金鑰，可先手動編寫及管理腳本。")
