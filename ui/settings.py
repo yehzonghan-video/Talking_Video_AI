@@ -42,22 +42,6 @@ def ai_provider() -> GeminiProvider:
         raise AIError('Gemini模型清單或重試參數設定無效，請由管理者檢查 Secrets／環境變數。') from None
 
 
-def render_model_selector(provider) -> None:
-    if not isinstance(provider, GeminiProvider):
-        return
-    automatic = '自動備援（預設）'
-    options = [automatic, *provider.allowed_models]
-    if st.session_state.get('ai_model_choice', automatic) not in options:
-        st.session_state.ai_model_choice = automatic
-    selected = st.selectbox('AI 模型', options, key='ai_model_choice')
-    fallback = True
-    if selected != automatic:
-        fallback = st.checkbox('失敗時切換其他備援模型', value=True, key='ai_manual_fallback')
-    provider.prefer_model(None if selected == automatic else selected, fallback=fallback)
-    st.caption('本次呼叫順序：' + ' → '.join(provider.models))
-    st.caption('切換模型只影響之後的生成，不會立即呼叫AI或更改既有稿件。')
-
-
 @dataclass
 class Services:
     catalog: Catalog

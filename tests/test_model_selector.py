@@ -89,3 +89,24 @@ def test_removed_model_resets_to_automatic_and_refresh_uses_default(monkeypatch,
     fresh = AppTest.from_file(str(ROOT / 'app.py'), default_timeout=20).run()
     assert by_label(fresh.selectbox, 'AI 模型').value == '自動備援（預設）'
     assert not sdk.calls
+
+
+def test_cloud_update_with_cached_settings_and_provider(monkeypatch, repo, catalog, sdk):
+    from ui import settings
+    # Reproduce the module interface loaded before the model selector update.
+    monkeypatch.delattr(settings, 'render_model_selector', raising=False)
+    monkeypatch.delattr(GeminiProvider, 'prefer_model')
+    ai = GeminiProvider('test-key')
+    del ai.allowed_models
+    at = setup_app(monkeypatch, repo, catalog, ai)
+    assert not at.exception
+    assert ai.models == DEFAULT_MODELS
+    before = at.session_state.draft.model_dump_json()
+    by_label(at.selectbox, 'AI 模型').set_value(DEFAULT_MODELS[2]).run()
+    assert not at.exception
+    assert ai.models == (DEFAULT_MODELS[2], DEFAULT_MODELS[0], DEFAULT_MODELS[1])
+    by_label(at.checkbox, '失敗時切換其他備援模型').uncheck().run()
+    assert ai.models == (DEFAULT_MODELS[2],)
+    by_label(at.selectbox, 'AI 模型').set_value('自動備援（預設）').run()
+    assert not at.exception and ai.models == DEFAULT_MODELS
+    assert not sdk.calls and at.session_state.draft.model_dump_json() == before

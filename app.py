@@ -8,7 +8,8 @@ from core.topics.combinations import ExhaustedTopics
 from core.workflow import WorkflowError
 from core.video.errors import VideoError
 from ui import topics, editor, library, video
-from ui.settings import services, render_model_selector
+from ui.settings import services
+from ui.model_selector import render_model_selector
 from ui.state import initialize, switch, persist
 
 st.set_page_config(page_title="口播企劃室", page_icon="✦", layout="wide")
