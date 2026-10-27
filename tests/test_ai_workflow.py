@@ -93,3 +93,20 @@ def test_sdk_secret_not_exposed(monkeypatch):
     with pytest.raises(AIError) as caught:
         GeminiProvider("private-key", "model").generate("test", {}, TitleResult)
     assert "private-key" not in str(caught.value)
+
+
+@pytest.mark.parametrize("code,notice", [(503, "需求過高"), (504, "逾時"), (401, "驗證失敗")])
+def test_service_errors_are_actionable_without_exposing_secrets(monkeypatch, code, notice):
+    from google import genai
+    class ServiceFailure(RuntimeError):
+        pass
+    def fail(**kwargs):
+        error = ServiceFailure("key=private-key")
+        error.code = code
+        raise error
+    monkeypatch.setattr(genai, "Client", fail)
+    with pytest.raises(AIError) as caught:
+        GeminiProvider("private-key", "model").generate("test", {}, TitleResult)
+    assert notice in str(caught.value)
+    assert "原有內容已保留" in str(caught.value)
+    assert "private-key" not in str(caught.value)

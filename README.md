@@ -37,14 +37,14 @@ python -m venv .venv
 
 ```toml
 GEMINI_API_KEY = "你的金鑰"
-GEMINI_MODEL = "gemini-3.8-flash"
+GEMINI_MODEL = "gemini-3.5-flash"
 ```
 
 或在啟動 Streamlit 的 PowerShell 設定環境變數：
 
 ```powershell
 $env:GEMINI_API_KEY = "你的金鑰"
-$env:GEMINI_MODEL = "gemini-3.8-flash"
+$env:GEMINI_MODEL = "gemini-3.5-flash"
 ```
 
 同名設定以 Secrets 優先；也支援 `GOOGLE_API_KEY`。模型可隨帳號可用模型調整。金鑰只在後端使用；不要放在分類、Prompt、Git 或匯出檔。`.streamlit/secrets.toml`、`.env`、本機資料均已忽略。
@@ -111,7 +111,7 @@ Talking_Video_AI/
 
 以模擬 AI 驗證選題、時長參數、連續修改、預覽／確認／取消／恢復、版本、重複組合多稿、備份恢復、交易並行與錯誤保留。Streamlit AppTest 驗證完整操作流程、缺金鑰手動儲存、異常回應與重新整理恢復。測試使用獨立暫存資料庫，不消耗 Gemini 額度。真實 Gemini 端到端呼叫需要設定有效金鑰後另行驗收。
 
-本次實測：**38 項通過**（2026-10-27），詳見 `TEST_RESULTS.md`。已在實際瀏覽器確認桌面頁面、缺金鑰提示、手動編輯與重新整理恢復，並檢查390px手機版畫面。
+本次實測：**41 項通過**（2026-10-27），詳見 `TEST_RESULTS.md`。已在實際瀏覽器確認桌面頁面、缺金鑰提示、手動編輯與重新整理恢復，並檢查390px手機版畫面。另以不含專案資料的固定訊息確認 Gemini 3.5 Flash 連線成功；完整內容生成尚待人工驗收。
 
 ## 下一階段
 

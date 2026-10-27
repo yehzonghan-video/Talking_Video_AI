@@ -40,4 +40,4 @@ def services() -> Services:
         categories = found[0]
     config = json.loads((industry / "prompt_config.json").read_text(encoding="utf-8"))
     return Services(Catalog(categories), SQLiteRepository(setting("DATA_PATH", str(ROOT / "data" / "talking_video.db"))),
-                    GeminiProvider(setting("GEMINI_API_KEY") or setting("GOOGLE_API_KEY"), setting("GEMINI_MODEL", "gemini-3.8-flash")), config)
+                    GeminiProvider(setting("GEMINI_API_KEY") or setting("GOOGLE_API_KEY"), setting("GEMINI_MODEL", "gemini-3.5-flash")), config)

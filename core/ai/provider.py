@@ -41,7 +41,10 @@ class GeminiProvider:
         except Exception as exc:
             code = str(getattr(exc, "code", ""))
             detail = {"429": "額度或呼叫頻率已達限制，請稍後重試。", "403": "金鑰權限不足，請檢查設定。",
-                      "400": "金鑰、模型或請求設定無效，請檢查設定。", "404": "找不到設定的模型，請由管理者調整。"}.get(code, "連線失敗或服務暫時無法使用，請稍後重試。")
+                      "401": "金鑰驗證失敗，請檢查設定。",
+                      "400": "金鑰、模型或請求設定無效，請檢查設定。", "404": "找不到設定的模型，請由管理者調整。",
+                      "503": "模型目前需求過高（503），請稍後重試，或由管理者更換模型。",
+                      "504": "服務回應逾時（504），請稍後重試。"}.get(code, "連線失敗或服務暫時無法使用，請稍後重試。")
             # Never expose SDK exceptions: they may contain credentials or request content.
             raise AIError("Gemini " + detail + " 原有內容已保留。") from exc
 
