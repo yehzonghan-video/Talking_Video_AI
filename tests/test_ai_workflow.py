@@ -10,8 +10,51 @@ from core.workflow import propose, accept, cancel, restore, checkpoint
 def test_five_titles(fake, catalog):
     selection = dict(a="A01", b="B01", c="C03")
     result = generate_titles(fake, catalog.context(selection), {}, {"industry": "測試產業"})
-    assert len(set(result.titles)) == 5
+    assert len({idea.title for idea in result.titles}) == 5
     assert "keywords" in fake.calls[0][1]["topic"]["a"]
+
+
+@pytest.mark.parametrize("count", range(1, 6))
+@pytest.mark.parametrize("status", ["適合", "可延伸"])
+def test_flexible_title_count_and_positive_status(fake, catalog, count, status):
+    fake.title_count, fake.title_status = count, status
+    selection = dict(a="A04", b="B03", c="C09")
+    result = generate_titles(fake, catalog.context(selection), {}, {})
+    assert result.status == status and len(result.titles) == count
+    assert all(idea.title and idea.topic for idea in result.titles)
+    assert not result.alternatives
+    prompt = fake.calls[-1][0]
+    assert "生活情境" in prompt and "不可只按分類表面關聯否定" in prompt
+    assert "只有一題也可以" in prompt and "同一內容換句話說" in prompt
+
+
+def test_not_recommended_only_offers_alternatives(fake, catalog):
+    fake.title_status = "不建議"
+    result = generate_titles(fake, catalog.context(dict(a="A01", b="B01", c="C01")), {}, {})
+    assert result.titles == [] and len(result.alternatives) == 1
+
+
+@pytest.mark.parametrize("status,titles,alternatives", [
+    ("可延伸", [], []),
+    ("不建議", [], []),
+    ("不建議", [dict(title="可信的標題", topic="已有可信切入點就不應標為不建議。")], [dict(a="A01", b="B01", c="C01")]),
+    ("適合", [dict(title="標題", topic="具體知識")], [dict(a="A01", b="B01", c="C01")]),
+    ("其他", [dict(title="標題", topic="具體知識")], []),
+])
+def test_conflicting_status_and_content_rejected(status, titles, alternatives):
+    with pytest.raises(ValidationError):
+        TitleResult(status=status, reason="理由", titles=titles, alternatives=alternatives)
+
+
+@pytest.mark.parametrize("ideas", [
+    [dict(title="標題一", topic="同一個問題"), dict(title="標題二", topic="同一個問題。")],
+    [dict(title="同一標題", topic="問題一"), dict(title="同一標題！", topic="問題二")],
+    [dict(title="標題", topic="   ")],
+    [dict(title="標題", topic="……")],
+])
+def test_repeated_or_empty_concrete_topics_rejected(ideas):
+    with pytest.raises(ValidationError):
+        TitleResult(status="適合", reason="理由", titles=ideas, alternatives=[])
 
 
 @pytest.mark.parametrize("seconds", [30, 45, 60])
@@ -63,10 +106,11 @@ def test_missing_key():
         GeminiProvider("", "model").generate("test", {}, TitleResult)
 
 
-@pytest.mark.parametrize("titles", [["一"] * 5, ["一", "二"], ["", "二", "三", "四", "五"]])
+@pytest.mark.parametrize("titles", [["一"] * 5, [], ["", "二", "三", "四", "五"], ["一", "二", "三", "四", "五", "六"]])
 def test_bad_titles(titles):
     with pytest.raises(ValidationError):
-        TitleResult(reasonable=True, reason="理由", alternatives=[], titles=titles)
+        TitleResult(status="適合", reason="理由", alternatives=[],
+                    titles=[dict(title=t, topic=f"不同具體問題{i}") for i, t in enumerate(titles)])
 
 
 def test_sdk_bad_response_is_sanitized(monkeypatch, draft):

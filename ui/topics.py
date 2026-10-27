@@ -64,8 +64,8 @@ def render(s):
         st.info("先採用一個選題，再生成標題。")
         return
     st.write(" × ".join(s.catalog.groups[dim][cid].name for dim, cid in d.selection.items()))
-    if st.button("重新生成5個標題" if d.title_result else "生成標題", type="primary"):
-        with st.spinner("正在評估選題並構思標題…"):
+    if st.button("重新生成標題" if d.title_result else "生成標題", type="primary"):
+        with st.spinner("正在尋找生活情境與具體選題…"):
             result = generate_titles(s.provider, s.catalog.context(d.selection),
                 {dim: [dict(id=c.id, name=c.name, description=c.description, keywords=c.keywords) for c in group.values()]
                  for dim, group in s.catalog.groups.items()}, s.config)
@@ -75,12 +75,19 @@ def render(s):
                 raise AIError("AI 建議包含不存在的分類，請重新生成。原有標題已保留。") from exc
             d.title_result = result.model_dump()
             persist(s)
+            st.rerun()
     if d.title_result:
         result = d.title_result
-        if result["reasonable"]:
-            st.success(result["reason"])
+        status = result.get("status")
+        if status == "適合":
+            st.success("適合｜" + result["reason"])
+        elif status == "可延伸":
+            st.info("可延伸｜" + result["reason"])
+        elif status == "不建議":
+            st.warning("不建議｜" + result["reason"] + " 可改用下方替代組合，或到腳本編輯手動填入標題繼續。")
         else:
-            st.warning("選題建議：" + result["reason"] + " 仍可使用下方標題繼續。")
+            # Old drafts retain their selectable titles without altering stored data.
+            st.info("這是舊版生成結果，仍可採用原標題；重新生成會依新的生活情境與選題規則評估。")
         for index, alt in enumerate(result["alternatives"]):
             label = " × ".join(s.catalog.groups[dim][cid].name for dim, cid in alt.items())
             if st.button("改用：" + label, key=f"alternative_{index}"):
@@ -88,10 +95,17 @@ def render(s):
                     switch(s, Draft(selection=alt))
                 d.selection, d.title_result = alt, None
                 refresh(s)
-        chosen = st.radio("選擇標題", result["titles"], key="suggested_" + str(hash(tuple(result["titles"]))))
-        if st.button("採用標題"):
-            if d.script and chosen != d.title:
-                st.info("標題已更新，現有逐字稿保留，可到腳本編輯頁提出修改。")
-            d.title = chosen
-            refresh(s)
+        ideas = result["titles"]
+        titles = [idea if isinstance(idea, str) else idea["title"] for idea in ideas]
+        if titles:
+            st.caption(f"找到 {len(titles)} 個選題；依實際可延伸內容提供，不強制湊滿五個。")
+            chosen = st.radio("選擇標題", titles, key="suggested_" + str(hash(tuple(titles))))
+            idea = ideas[titles.index(chosen)]
+            if isinstance(idea, dict):
+                st.write("具體選題：" + idea["topic"])
+            if st.button("採用標題"):
+                if d.script and chosen != d.title:
+                    st.info("標題已更新，現有逐字稿保留，可到腳本編輯頁提出修改。")
+                d.title = chosen
+                refresh(s)
     st.caption("到「腳本編輯」可手動調整標題、設定長度並生成逐字稿。")
