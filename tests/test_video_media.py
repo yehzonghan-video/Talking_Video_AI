@@ -157,3 +157,22 @@ def test_pipeline_caches_asr_and_ai_failure_preserves_progress(media_files, tmp_
     assert '服務繁忙' in p.analysis_note and manager.get(p.id).transcript
     assert p.suggestions and asr.calls == 1
     assert not list(assets.project_dir(p.id).glob('temp-*.wav'))
+
+
+def test_empty_transcript_can_be_retried(media_files, tmp_path, draft, catalog):
+    manager, assets = VideoProjectManager(tmp_path / 'db.sqlite'), LocalAssets(tmp_path / 'media')
+    script = project_from_draft(draft, catalog.combo_id(draft.selection))
+    with media_files['mp4'].open('rb') as upload:
+        project = create_project(script, upload, 'source.mp4', assets, manager)
+    class ASR:
+        model_name = 'retry-model'
+        calls = 0
+        def transcribe(self, audio, duration, progress):
+            self.calls += 1
+            return Transcript(provider='test', model=self.model_name, timing='acoustic-alignment',
+                segments=[] if self.calls == 1 else [Segment(id='s1', start=.1, end=1.5, text='確認預算。')])
+    asr = ASR()
+    with pytest.raises(VideoError, match='沒有辨識'):
+        analyze(project, manager, assets, asr)
+    saved = analyze(manager.get(project.id), manager, assets, asr)
+    assert asr.calls == 2 and saved.transcript.segments

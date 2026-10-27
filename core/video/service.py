@@ -23,7 +23,7 @@ def analyze(project, manager, assets, asr, ai=None, settings=None, force=False, 
         update('已讀取先前的分析結果，沒有重複呼叫', 1.0)
         return project
     project = project.model_copy(deep=True)
-    if project.transcript is None or project.transcript.model != asr.model_name:
+    if project.transcript is None or not project.transcript.segments or project.transcript.model != asr.model_name:
         update('語音辨識：第一次使用需下載模型，之後可重複使用', .08)
         project.transcript = transcribe_video(project, assets, asr, update)
         project = manager.save(project)  # ASR survives a later network failure.
