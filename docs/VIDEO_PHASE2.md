@@ -11,7 +11,9 @@
 .\.venv\Scripts\python.exe tools/install_ffmpeg.py
 ```
 
-安裝器從 FFmpeg 官網列出的 Gyan Windows 發行來源下載，驗證 SHA256，僅寫入本專案的 `tools/ffmpeg/`。已有可執行的本機副本便會沿用，不修改系統 PATH。Linux 可安裝系統的 `ffmpeg` 套件；`packages.txt` 供 Community Cloud 安裝系統工具，但仍須安裝 `requirements-video.txt` 並考量記憶體限制。
+安裝器從 FFmpeg 官網列出的 Gyan Windows 發行來源下載，驗證 SHA256，僅寫入本專案的 `tools/ffmpeg/`。已有可執行的本機副本便會沿用，不修改系統 PATH。Linux 可安裝系統的 `ffmpeg` 套件。Community Cloud 由根目錄的 `requirements.txt` 安裝包含語音辨識的 Python 依賴，並由 `packages.txt` 安裝 FFmpeg；不需執行 Windows 安裝程式。`requirements-video.txt` 保留為既有本機安裝入口，沿用同一份依賴清單。
+
+若雲端顯示「語音辨識套件未安裝或載入失敗」，請在 Manage app 查看部署日誌，確認依賴安裝成功並已使用最新提交；必要時 Reboot app。若日誌顯示 Python 版本或二進位套件不相容，請檢查部署環境版本（本機驗證使用 Python 3.12），不能只靠重新整理解決。
 
 接著雙擊 `開啟系統.bat`，瀏覽 `http://127.0.0.1:8501`，選擇側欄 **AI 影片粗剪**。本機語音辨識與人工剪輯不需要 Gemini 金鑰；開啟語意分析時沿用第一階段金鑰及模型設定。
 

@@ -64,6 +64,6 @@ class FasterWhisperProvider:
                         progress('語音辨識', min(.9, segment.end / duration))
             return Transcript(provider='faster-whisper', model=self.model_name, timing='acoustic-alignment', segments=results)
         except ImportError as exc:
-            raise VideoError('語音辨識套件尚未安裝，請先執行第二階段安裝程式。') from exc
+            raise VideoError('語音辨識套件未安裝或載入失敗。本機版請執行「安裝影片功能.bat」；雲端版請由管理者確認 requirements.txt 已包含 faster-whisper 與 opencc-python-reimplemented，並重新部署安裝依賴。原片與已保存的剪輯均保留。') from exc
         except Exception as exc:
             raise VideoError('語音辨識未完成。首次使用需下載模型；請檢查網路、模型設定與記憶體，原片及已完成的分析均保留。') from exc
