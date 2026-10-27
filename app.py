@@ -32,6 +32,8 @@ def main():
         st.info("目前資料保存在本機／目前雲端主機。雲端重啟或重新部署可能遺失，請定期下載 JSON 備份。")
         if not s.provider.api_key:
             st.warning("尚未設定 AI 金鑰，可先手動編寫及管理腳本。")
+        if st.session_state.get('last_ai_model'):
+            st.caption('最近一次成功生成使用模型：' + st.session_state.last_ai_model)
         st.caption("目前草稿：" + (st.session_state.draft.title or "未命名"))
         if st.button("新增空白草稿"):
             switch(s, Draft())
@@ -40,7 +42,12 @@ def main():
                 if st.button(draft.title or "未命名草稿", key="resume_" + token):
                     switch(s, draft, token)
             st.caption("重新整理會依網址恢復草稿；請勿把含草稿識別碼的網址分享給他人。")
-    {"AI 選題": topics.render, "腳本編輯": editor.render, "腳本資料庫": library.render, "AI 影片粗剪": video.render}[page](s)
+    try:
+        {"AI 選題": topics.render, "腳本編輯": editor.render, "腳本資料庫": library.render, "AI 影片粗剪": video.render}[page](s)
+    finally:
+        # st.rerun also executes finally; retain metadata without issuing another request.
+        if getattr(s.provider, 'last_model', None):
+            st.session_state.last_ai_model = s.provider.last_model
     persist(s)
 
 

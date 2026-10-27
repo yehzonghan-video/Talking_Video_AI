@@ -39,19 +39,35 @@ python -m venv .venv
 
 ```toml
 GEMINI_API_KEY = "你的金鑰"
-GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
+GEMINI_MAX_RETRIES = 2
 ```
 
 或在啟動 Streamlit 的 PowerShell 設定環境變數：
 
 ```powershell
 $env:GEMINI_API_KEY = "你的金鑰"
-$env:GEMINI_MODEL = "gemini-3.5-flash"
+$env:GEMINI_MODELS = '["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]'
+$env:GEMINI_MAX_RETRIES = '2'
 ```
 
-同名設定以 Secrets 優先；也支援 `GOOGLE_API_KEY`。模型可隨帳號可用模型調整。金鑰只在後端使用；不要放在分類、Prompt、Git 或匯出檔。`.streamlit/secrets.toml`、`.env`、本機資料均已忽略。
+同名設定以 Secrets 優先；也支援 `GOOGLE_API_KEY`。`GEMINI_MODELS` 的順序就是完整的管理者允許清單，支援TOML陣列、環境變數JSON或逗號分隔，最多5個且重複名稱只保留第一次。設定此清單後不會再附加任何模型；未設定時沿用 `GEMINI_MODEL` 作為主要模型（預設3.6 Flash），備用預設為3.5 Flash-Lite與3.1 Flash-Lite。不會自動探索清單外或另行切換至未允許的付費模型，也不會變更帳號計費設定。
 
-AI 使用 Google 官方 `google-genai` SDK、JSON Schema 與 Pydantic 雙層格式驗證，60秒請求逾時。格式錯誤不自動重試，讓使用者決定是否再生成，避免意外消耗額度。參考：[Google Gen AI SDK](https://googleapis.github.io/python-genai/)、[模型目錄](https://ai.google.dev/gemini-api/docs/models)。
+金鑰只在後端使用；不要放在分類、Prompt、Git 或匯出檔。`.streamlit/secrets.toml`、`.env`、本機資料均已忽略。模型及額度是否可用，仍依帳號權限與計費方案決定。
+
+AI 使用 Google 官方 `google-genai` SDK、JSON Schema 與 Pydantic 雙層格式驗證。503會先在同模型有限次數指數退避，再切換清單中的下一模型；格式錯誤不會視為成功，也不在同模型重複湊答案，只嘗試下一個允許模型。切換時Prompt、ABC、原稿、最新修改要求與歷史對話完全沿用，只有實際模型及剩餘請求時限改變。
+
+429採保守規則：以QuotaFailure、RetryInfo、錯誤原因及Retry-After區分；明確短期速率限制只在同模型有限重試，耗盡後停止，不切換模型。明確每日／帳戶額度耗盡或無法辨識的429立即停止，不輪流消耗其他模型。400／401／403等設定、驗證與權限錯誤立即停止；404不重試原模型，可嘗試下一個已允許模型。
+
+已檢查本機SDK 2.29.0：`retry_args(None)`不重試，而啟用未指定attempts的`HttpRetryOptions`會預設最多5次嘗試。Provider明確將SDK內層設為`attempts=1`，重試只由本專案控制，並以真實SDK加模擬HTTP驗證實際請求次數。
+
+可選參數（Secrets或環境變數）：`GEMINI_MAX_RETRIES=2`（每模型額外重試0～3次）、`GEMINI_RETRY_INITIAL_DELAY=1.0`、`GEMINI_RETRY_MAX_DELAY=8.0`（上限30秒）、`GEMINI_REQUEST_TIMEOUT=60.0`（1～60秒）、`GEMINI_MAX_ELAPSED=180.0`（整次1～300秒）。退避包含少量隨機延遲；服務要求等待時間若超過自動等待上限，會停止並提示稍後重試。預設3模型遇到持續503最多9次API請求，仍受整次時限限制。
+
+成功後側欄顯示最近一次實際使用的模型。只按生成／修改／分析按鈕時呼叫API，顯示模型資訊與一般頁面重跑不會自動重新生成，也不在Provider內儲存或覆蓋腳本。
+
+呼叫紀錄保存於目前資料庫同層的 `logs/gemini_calls.jsonl`，每份約1 MB、保留3份輪替備份。只記錄時間、隨機請求識別碼、允許模型名稱、嘗試次序、成功／失敗、固定錯誤類型、HTTP狀態及耗時；不記錄金鑰、Prompt、ABC內容、稿件、對話、回應全文或原始例外。不要開啟第三方SDK／HTTP的敏感內容除錯日誌。
+
+參考：[Google Gen AI SDK](https://googleapis.github.io/python-genai/)、[API錯誤說明](https://ai.google.dev/gemini-api/docs/api-errors)、[模型目錄](https://ai.google.dev/gemini-api/docs/models)。
 
 ## 日常操作
 
@@ -113,7 +129,9 @@ Talking_Video_AI/
 
 以模擬 AI 驗證選題、時長參數、連續修改、預覽／確認／取消／恢復、版本、重複組合多稿、備份恢復、交易並行與錯誤保留。Streamlit AppTest 驗證完整操作流程、缺金鑰手動儲存、異常回應與重新整理恢復。測試使用獨立暫存資料庫，不消耗 Gemini 額度。真實 Gemini 端到端呼叫需要設定有效金鑰後另行驗收。
 
-ABC 選題規則更新後實測：**119 項全部通過，其中57項為標題與介面相關測試**（2026-10-27）。涵蓋「適合／可延伸」各1～5個標題、不建議與替代組合、重複選題及矛盾回應拒絕、重新生成保留ABC與手改標題、舊草稿相容，以及1個標題也能完成逐字稿／對話／儲存流程。
+Gemini備援更新後實測：**167 項全部通過，其中48項為模型備援、配額、設定與UI整合測試**（2026-10-27）。涵蓋503退避及兩層備援、全部失敗、429分鐘／每日／不明配額、權限與設定錯誤、格式驗證、上下文保留、頁面重跑不重送、單一腳本保存，以及安全輪替日誌。另以真實SDK搭配模擬HTTP確認不會疊加隱藏重試。
+
+ABC標題測試同時涵蓋「適合／可延伸」各1～5個標題、不建議與替代組合、重複選題及矛盾回應拒絕、重新生成保留ABC與手改標題、舊草稿相容，以及1個標題也能完成逐字稿／對話／儲存流程。
 
 第一階段原始驗證紀錄見 `TEST_RESULTS.md`。已在實際瀏覽器確認桌面頁面、缺金鑰提示、手動編輯與重新整理恢復，並檢查390px手機版畫面。另以不含專案資料的固定訊息確認 Gemini 3.5 Flash 連線成功；此次選題規則以模擬回應驗證，實際生成品質仍待人工驗收。
 
