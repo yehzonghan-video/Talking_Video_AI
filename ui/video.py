@@ -18,7 +18,7 @@ from core.video.renderer import render as render_video
 from core.video.service import analyze, confirm_timeline, restore_timeline
 from core.transcription.provider import FasterWhisperProvider
 from ui.settings import ROOT, setting
-from ui.subtitles import render as render_subtitles
+from ui.subtitles import render as render_subtitles, environment_check
 from core.subtitles.service import delivery_cues, delivery_signature
 
 
@@ -217,6 +217,7 @@ def render(s):
         st.code('.\\.venv\\Scripts\\python.exe tools/install_ffmpeg.py', language='powershell')
         return
     manager, assets = resources(s)
+    environment_check(assets)
     upload_section(s, manager, assets)
     projects = manager.list()
     if not projects:

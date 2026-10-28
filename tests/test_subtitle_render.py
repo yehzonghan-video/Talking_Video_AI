@@ -103,3 +103,12 @@ def test_single_frame_preview_and_cache_use_output_to_source_mapping(caption_pro
     preview_frame(project, assets, cues[0], cues, CaptionStyle(), output)
     assert output.stat().st_mtime_ns == modified
     assert not list(assets.project_dir(project.id).glob('temp-sub-*'))
+
+
+def test_cloud_smoke_uses_disposable_media_and_cleans_all_temporary_files(tmp_path):
+    from core.subtitles.diagnostic import inspect_environment
+    result = inspect_environment(tmp_path)
+    assert b'ftyp' in result['captioned'][:32] and b'ftyp' in result['plain'][:32]
+    assert '00:00:01,100' in result['srt'].decode('utf-8-sig')
+    assert result['duration'] == pytest.approx(2, abs=.15) and result['frame'].startswith(b'\x89PNG')
+    assert not list(tmp_path.iterdir())

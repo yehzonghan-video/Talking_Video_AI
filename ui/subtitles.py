@@ -7,8 +7,24 @@ from core.subtitles.mapping import map_captions, time_map
 from core.subtitles.formats import srt
 from core.subtitles.burn import preview_frame, prune_previews
 from core.subtitles.schemas import CaptionStyle
-from core.subtitles.fonts import find_font
 from core.video.errors import VideoError
+
+
+def environment_check(assets):
+    with st.expander('字幕環境檢查（不使用你的影片）'):
+        st.caption('用2秒合成示範檢查繁體字型、黃色重點、剪輯後時間、SRT及帶／不帶字幕MP4；不新增正式專案，也不呼叫AI或語音辨識。')
+        if st.button('檢查字幕與中文字型'):
+            from core.subtitles.diagnostic import inspect_environment
+            with st.spinner('正在檢查字幕輸出環境…'):
+                st.session_state.caption_environment_result = inspect_environment(assets.root)
+        result = st.session_state.get('caption_environment_result')
+        if result:
+            st.success(f'字幕輸出檢查通過｜字型：{result["font"]}｜剪輯後 {result["duration"]:.2f} 秒')
+            st.image(result['frame'], width=240)
+            st.video(result['captioned'], width=240)
+            st.download_button('下載字幕測試 MP4', result['captioned'], file_name='字幕環境測試.mp4', mime='video/mp4', on_click='ignore')
+            st.download_button('下載無字幕測試 MP4', result['plain'], file_name='無字幕環境測試.mp4', mime='video/mp4', on_click='ignore')
+            st.download_button('下載測試 SRT', result['srt'], file_name='字幕環境測試.srt', mime='application/x-subrip', on_click='ignore')
 
 
 def render(project, manager, assets):
