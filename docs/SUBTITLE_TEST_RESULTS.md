@@ -20,4 +20,10 @@ pip check: No broken requirements found.
 
 新字幕邏輯只使用跨平台Python、系統FFmpeg/libass及實際字型檔。根目錄requirements提供新Python依賴；packages提供ffmpeg、fonts-noto-cjk、fontconfig。Linux使用Noto Sans CJK TC，不使用本機Windows路徑。限制編碼／濾鏡執行緒為2，預覽只有按鈕才執行，並清除暫存。
 
-雲端實測進度另補於下方；本機通過不代表已在Cloud成功輸出。首次開啟使用者Cloud網站時為休眠，已送出正常喚醒，平台一度顯示啟動較久。
+已在使用者提供的 https://talking-to-video-ai.streamlit.app/ 實際驗證第三階段部署。起初平台休眠、喚醒較久，之後載入新版粗剪與字幕環境檢查。
+
+雲端按「檢查字幕與中文字型」成功：實際字型 **Noto Sans CJK TC**；執行繁體轉換、中文分段、刪除原片1～2秒後的時間映射、FFmpeg字幕燒錄、無字幕MP4、SRT及單張畫面。成品長度 **2.00秒**，頁面可見正常繁體字與黃色重點，並提供兩種MP4與SRT下載。這是Cloud的實際FFmpeg輸出，不是本機截圖或假AI回覆；沒有呼叫Gemini／ASR，也沒有寫入正式資料庫。截圖在本機忽略目錄 `artifacts/cloud-subtitles-verified.png`。
+
+另以隔離的本機合成字幕專案，實際操作修字表格、重點樣式、單張預覽及輸出控制項。資料位於 `.tmp/caption-demo/`，不影響正式資料。
+
+本次雲端重啟／更新後，清單未讀到先前腳本與影片專案，已向使用者說明Cloud本機資料非永久；如有備份，可匯入腳本JSON、剪輯JSON並重新連結原片。測試未刪除或覆寫正式專案，不宣稱已恢復不存在的雲端檔案。第三階段測試使用獨立合成示範，尚未以使用者原片在Cloud逐句驗收字幕。
