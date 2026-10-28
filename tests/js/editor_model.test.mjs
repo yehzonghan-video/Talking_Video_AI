@@ -12,7 +12,28 @@ import {
   chooseCorrection,
   History,
   makeRequest,
+  mediaUrl,
 } from "../../ui/frontend/editor_model.mjs";
+test("media references preserve Cloud and configured proxy prefixes", () => {
+  assert.equal(
+    mediaUrl(
+      "/media/example.mp4",
+      "https://demo.streamlit.app/~/+/?draft=test",
+    ),
+    "https://demo.streamlit.app/~/+/media/example.mp4",
+  );
+  assert.equal(
+    mediaUrl(
+      "/editor/media/example.mp4",
+      "https://example.test/editor/?draft=test",
+    ),
+    "https://example.test/editor/media/example.mp4",
+  );
+  assert.equal(
+    mediaUrl("/media/example.mp4", "http://localhost:8501/"),
+    "http://localhost:8501/media/example.mp4",
+  );
+});
 let count = 0;
 const id = () => `test-${++count}`;
 const caption = (name, start, text) => ({

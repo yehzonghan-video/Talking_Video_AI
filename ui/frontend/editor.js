@@ -821,15 +821,15 @@ export default function (component) {
     }
   };
   window.addEventListener("beforeunload", unload);
-  const sourceUrl = new URL(
-    (doc.media_url || "").replace(/^\//, ""),
-    window.location.href,
-  ).href;
+  const sourceUrl = mediaUrl(doc.media_url || "", window.location.href);
   video.src = sourceUrl;
   function size() {
     const aspect = doc.video.width / doc.video.height,
       available = q(".preview").clientWidth - 20;
-    const w = Math.min(available, 420 * aspect);
+    const maxHeight = window.matchMedia("(max-width:700px)").matches
+      ? 330
+      : 420;
+    const w = Math.min(available, maxHeight * aspect);
     q(".screen").style.width = w + "px";
     q(".screen").style.aspectRatio = String(aspect);
     paint();
@@ -842,6 +842,11 @@ export default function (component) {
   };
   video.onpause = paint;
   video.onplay = paint;
+  video.onerror = () =>
+    notice(
+      "瀏覽器無法播放這個影片編碼，請使用相容瀏覽器或 H.264 MP4；原片與編輯仍保留。",
+      true,
+    );
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
     if (
@@ -872,10 +877,7 @@ export default function (component) {
     const player = q(".output-video");
     q(".output-result").classList.toggle("hidden", !doc.output_url);
     if (doc.output_url) {
-      const url = new URL(
-        doc.output_url.replace(/^\//, ""),
-        window.location.href,
-      ).href;
+      const url = mediaUrl(doc.output_url, window.location.href);
       if (player.src !== url) player.src = url;
     }
   }

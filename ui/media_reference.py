@@ -1,6 +1,7 @@
 """Small Streamlit 1.65 adapter: register bytes once and renew session references.
 
-The SDK's normal add(path) re-reads and hashes the entire file on every rerun.
+The SDK's normal add(path) re-reads the entire file and recalculates its media
+fingerprint on every rerun (large files use partial hashing in Streamlit 1.65).
 All private SDK access lives here and is tested against the pinned SDK version.
 """
 from pathlib import Path

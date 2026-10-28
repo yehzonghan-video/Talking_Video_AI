@@ -1,6 +1,10 @@
 // Pure editing model: no DOM, network, media bytes, Python, or FFmpeg commands.
 export const copy = (value) => JSON.parse(JSON.stringify(value));
 export const newId = () => crypto.randomUUID();
+// Streamlit supplies /media URLs; preserve the embedding proxy's directory.
+// An already prefixed URL must not receive that directory a second time.
+export const mediaUrl = (reference, location) =>
+  new URL(reference.replace(/^\/media\//, "media/"), location).href;
 const finite = (n) => typeof n === "number" && Number.isFinite(n);
 export function buildMap(duration, cuts) {
   const ranges = cuts
