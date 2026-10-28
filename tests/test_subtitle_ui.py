@@ -23,8 +23,8 @@ def test_caption_ui_generation_style_and_toggle_make_no_ai_or_asr_calls(monkeypa
     monkeypatch.setattr(FasterWhisperProvider, 'transcribe', forbidden)
     fake.generate = forbidden
     at = open_video()
-    by_label(at.button, '由現有辨識產生字幕').click().run()
     assert not at.exception and manager.get(project.id).subtitles
+    assert manager.get(project.id).subtitles.enabled
     by_label(at.selectbox, '字幕樣式').set_value('重點字幕')
     by_label(at.slider, '字體大小').set_value(64)
     by_label(at.button, '保存字幕與樣式').click().run()

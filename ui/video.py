@@ -16,7 +16,7 @@ from core.video.uploader import create_project, reattach_source
 from core.video.timeline import filename
 from core.video.renderer import render as render_video
 from core.video.export_service import export_mp4
-from core.video.service import analyze, confirm_timeline, restore_timeline
+from core.video.service import analyze, confirm_timeline, restore_timeline, prepare_delivery
 from core.transcription.provider import FasterWhisperProvider
 from ui.settings import ROOT, setting
 from ui.subtitles import render as render_subtitles, environment_check
@@ -145,10 +145,7 @@ def decisions_editor(project, manager, assets):
         with st.form('manual_cut_' + project.id):
             start = st.number_input('手動刪除開始（秒）', min_value=0.0, max_value=project.media.duration, value=0.0, step=.01)
             end = st.number_input('手動刪除結束（秒）', min_value=0.0, max_value=project.media.duration, value=min(1.0, project.media.duration), step=.01)
-            confirmed = st.checkbox('我已聽過這一段，確認刪除')
             if st.form_submit_button('加入並保存新版本'):
-                if not confirmed:
-                    raise VideoError('請先勾選「我已聽過這一段，確認刪除」。')
                 manual = Decision(start=start, end=end, kind='manual', reason='使用者手動確認刪除', selected=True, confirmed=True)
                 confirm_timeline(project, manager, [*latest.decisions, manual])
                 st.rerun()
@@ -241,6 +238,7 @@ def render(s):
             reattach_source(project, upload, upload.name, assets)
             st.rerun()
         return
+    project = prepare_delivery(project, manager)
     advanced = st.checkbox('顯示進階表格與原片試聽', value=False, key='advanced_video_' + project.id)
     if advanced:
         with st.expander('原始影片與片段試聽', expanded=True):
@@ -262,6 +260,6 @@ def render(s):
         if project.transcript:
             latest = project.timelines[-1]
             selected_cuts = sum(item.selected for item in latest.decisions)
-            st.success(f'已完成自動粗剪｜目前套用 {selected_cuts} 個調整，可直接播放或輸出 MP4。')
+            st.success(f'已完成自動粗剪與字幕｜目前套用 {selected_cuts} 個調整，可直接播放或輸出 MP4。')
         from ui.visual_editor import render as render_visual_editor
         render_visual_editor(project, manager, assets)

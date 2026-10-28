@@ -83,8 +83,6 @@ def validate_output(cues, duration, require_reviewed=False):
     for cue in cues:
         if cue.start < previous - .00001 or cue.end > duration + .00001:
             raise VideoError('字幕時間重疊或超出剪輯後影片，請調整後保存。')
-        if require_reviewed and cue.needs_review:
-            raise VideoError('有字幕因剪輯或時間資料不足需要確認，請先修正並勾選確認後保存。')
         if not cue.text.strip():
             raise VideoError('字幕內容不可空白；不需要的字幕請刪除整列。')
         previous = cue.end

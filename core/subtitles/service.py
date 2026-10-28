@@ -68,8 +68,6 @@ def save_edits(project, manager, rows, style, enabled):
         row_id = row.get('id') if isinstance(row.get('id'), str) else ''
         old = current.get(row_id)
         confirmed = bool(row.get('confirmed', False))
-        if old and old.needs_review and not confirmed:
-            raise VideoError('請先確認標示待確認的字幕，修正後勾選「已確認」。')
         spans = output_to_source(start, end, timeline)
         out = OutputCaption(id=row_id, start=start, end=end, text=text, highlights=highlights, source_spans=spans)
         outputs.append(out)

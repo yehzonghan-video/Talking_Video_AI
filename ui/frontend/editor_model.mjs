@@ -15,10 +15,9 @@ export function buildMap(duration, cuts) {
         !finite(c.end) ||
         c.start < 0 ||
         c.end <= c.start ||
-        c.end > duration ||
-        !c.confirmed
+        c.end > duration
       )
-        throw Error("請確認刪除片段的時間與人工確認狀態。");
+        throw Error("刪除片段時間無效：開始須早於結束，且不可超出原片。");
       return { start: c.start, end: c.end };
     })
     .sort((a, b) => a.start - b.start);
@@ -236,7 +235,6 @@ export function validateCues(cues, duration, reviewed = false) {
     )
       throw Error("字幕重疊或超出影片，請調整邊界。");
     if (!c.text.trim()) throw Error("字幕不可空白。");
-    if (reviewed && c.needs_review) throw Error("請先試聽並確認標示的字幕。");
     end = c.end;
   }
 }

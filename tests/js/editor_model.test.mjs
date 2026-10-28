@@ -69,9 +69,9 @@ test("cut mapping, skip region and inverse are deterministic", () => {
     { start: 10, end: 11 },
   ]);
 });
-test("unconfirmed, reversed and all-video cuts rejected", () => {
+test("legacy unconfirmed cuts work; reversed and all-video cuts rejected", () => {
+  assert.equal(buildMap(15, [{ start: 1, end: 3, selected: true, confirmed: false }]).at(-1).output_end, 13);
   for (const cut of [
-    { start: 1, end: 3, selected: true, confirmed: false },
     { start: 4, end: 3, selected: true, confirmed: true },
     { start: 0, end: 15, selected: true, confirmed: true },
   ])

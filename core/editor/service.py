@@ -24,7 +24,7 @@ class CaptionEdit(StrictModel):
 class CutEdit(Span):
     id: str = Field(min_length=1, max_length=100)
     selected: StrictBool
-    confirmed: StrictBool
+    confirmed: StrictBool = False
 
 
 class CorrectionChoice(StrictModel):
@@ -140,8 +140,6 @@ def save_document(project_id, manager, payload):
                     source.atoms, source.manual, source.review_reason, source.correction_ref = [], True, '', ''
                 source.highlights = item.highlights
             else:
-                if not item.confirmed:
-                    raise VideoError('人工修改的字幕需確認後才能保存。')
                 source = SourceCaption(id=item.id, spans=item.spans, text=text, highlights=item.highlights, manual=True)
             sources.append(source)
         track.cues, track.style, track.enabled = sorted(sources, key=lambda c: c.spans[0].start), request.style, request.enabled

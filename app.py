@@ -24,7 +24,7 @@ def report_release(release):
     get_logger('talking_video.deployment').info('app_release=%s', release)
 
 
-report_release('2026.10.28-visual-r1')
+report_release('2026.10.28-auto-caption-r2')
 st.markdown("""<style>
 .block-container {max-width:1100px;padding-top:2.2rem}
 h1,h2,h3 {letter-spacing:.02em}

@@ -42,7 +42,6 @@ def test_saved_project_manual_cut_restore_preview_export(monkeypatch, repo, cata
     with media_files['mp4'].open('rb') as upload:
         project = create_project(script, upload, 'source.mp4', assets, manager)
     at = open_video()
-    by_label(at.checkbox, '我已聽過這一段，確認刪除').check()
     by_label(at.number_input, '手動刪除開始（秒）').set_value(1.7)
     by_label(at.number_input, '手動刪除結束（秒）').set_value(3.8)
     by_label(at.button, '加入並保存新版本').click().run()
@@ -63,12 +62,12 @@ def test_saved_project_manual_cut_restore_preview_export(monkeypatch, repo, cata
     assert len(manager.get(saved.id).timelines[-1].keep_segments) == 2
 
 
-def test_manual_cut_requires_confirmation(monkeypatch, repo, catalog, fake, tmp_path, draft, media_files):
+def test_manual_cut_has_no_confirmation_gate(monkeypatch, repo, catalog, fake, tmp_path, draft, media_files):
     manager, assets = prepare(monkeypatch, repo, catalog, fake, tmp_path)
     script = repo.save(project_from_draft(draft, catalog.combo_id(draft.selection)))
     with media_files['silent'].open('rb') as upload:
         p = create_project(script, upload, 'silent.mp4', assets, manager)
     at = open_video()
     by_label(at.button, '加入並保存新版本').click().run()
-    assert not at.exception and any('先勾選' in e.value for e in at.error)
-    assert len(manager.get(p.id).timelines) == 1
+    assert not at.exception
+    assert len(manager.get(p.id).timelines) == 2

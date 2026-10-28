@@ -98,8 +98,7 @@ def test_partial_word_cut_requires_review():
     timeline = build_timeline(3, [Decision(start=1, end=2, kind='manual', reason='test', selected=True, confirmed=True)], 2, 'test')
     cues = map_captions(tr, timeline)
     assert cues and cues[0].needs_review
-    with pytest.raises(VideoError, match='確認'):
-        validate_output(cues, 2, require_reviewed=True)
+    validate_output(cues, 2, require_reviewed=True)  # Legacy flag is advisory.
 
 
 def test_manual_caption_cut_is_retained_and_low_confidence_does_not_block_delivery():

@@ -10,6 +10,24 @@ from core.editing.edit_planner import local_plan, semantic_plan
 from core.video.errors import VideoError
 
 
+def prepare_delivery(project, manager):
+    """Upgrade an existing analysis to the complete cut + caption workflow.
+
+    Idempotent on reruns; never re-runs ASR/AI and never replaces a manual
+    timeline or existing captions (including a deliberate disabled setting).
+    """
+    if not project.transcript or not project.transcript.segments:
+        return project
+    if project.timelines[-1].number == 1:
+        updated, created = apply_automatic_timeline(project)
+        if created:
+            project = manager.save(updated)
+    if project.subtitles is None:
+        from core.subtitles.service import generate
+        project = generate(project, manager)
+    return project
+
+
 def apply_automatic_timeline(project):
     """Apply selected high-confidence cuts immediately, without touching source media.
 
@@ -46,7 +64,7 @@ def analyze(project, manager, assets, asr, ai=None, settings=None, force=False, 
                                 str(getattr(ai, 'model', 'local-only'))).encode()).hexdigest()
     if project.analysis_signature == signature and not force:
         update('已讀取先前的分析結果，沒有重複呼叫', 1.0)
-        return project
+        return prepare_delivery(project, manager)
     project = project.model_copy(deep=True)
     if project.transcript is None or not project.transcript.segments or project.transcript.model != asr.model_name:
         update('語音辨識：第一次使用需下載模型，之後可重複使用', .08)
@@ -85,14 +103,14 @@ def analyze(project, manager, assets, asr, ai=None, settings=None, force=False, 
             selected = sum(item.selected for item in project.timelines[-1].decisions)
             project.analysis_note += (f' 已完成自動粗剪（{selected} 個調整）。' if created
                                       else ' 已保留使用者目前保存的剪輯時間軸。')
-            return manager.save(project)
+            return prepare_delivery(manager.save(project), manager)
     project.analysis_signature = signature
     project, created = apply_automatic_timeline(project)
     selected = sum(item.selected for item in project.timelines[-1].decisions)
     project.analysis_note += (f' 已完成自動粗剪（{selected} 個調整），可直接預覽或輸出 MP4。' if created
                               else ' 已保留使用者目前保存的剪輯時間軸，可直接預覽或輸出 MP4。')
     update('已完成自動粗剪，可直接預覽或輸出', 1.0)
-    return manager.save(project)
+    return prepare_delivery(manager.save(project), manager)
 
 
 def confirm_timeline(project, manager, decisions, note='人工確認剪輯'):
