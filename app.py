@@ -13,6 +13,18 @@ from ui.model_selector import render_model_selector
 from ui.state import initialize, switch, persist
 
 st.set_page_config(page_title="口播企劃室", page_icon="✦", layout="wide")
+
+
+# A safe, once-per-process release marker makes Cloud source synchronisation
+# distinguishable from browser reloads and cached imported modules.  It must be
+# declared after ``set_page_config`` because that Streamlit call has to be first.
+@st.cache_resource
+def report_release(release):
+    from streamlit.logger import get_logger
+    get_logger('talking_video.deployment').info('app_release=%s', release)
+
+
+report_release('2026.10.28-visual-r1')
 st.markdown("""<style>
 .block-container {max-width:1100px;padding-top:2.2rem}
 h1,h2,h3 {letter-spacing:.02em}
