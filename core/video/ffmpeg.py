@@ -19,10 +19,10 @@ def binary(name: str) -> str:
     raise VideoError(f'尚未安裝 {name}，請先執行第二階段安裝程式，或由管理者設定路徑。')
 
 
-def run(name: str, args: list[str], timeout: int = 600) -> subprocess.CompletedProcess:
+def run(name: str, args: list[str], timeout: int = 600, *, cwd: Path | None = None) -> subprocess.CompletedProcess:
     try:
         result = subprocess.run([binary(name), *args], capture_output=True, encoding='utf-8', errors='replace',
-                                timeout=timeout, shell=False,
+                                timeout=timeout, shell=False, cwd=cwd,
                                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     except subprocess.TimeoutExpired as exc:
         raise VideoError('影片處理超過時間限制，請縮短影片後重試；原始影片與已儲存時間軸均保留。') from exc

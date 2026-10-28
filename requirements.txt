@@ -3,3 +3,5 @@ google-genai==2.29.0
 pydantic==2.14.1
 faster-whisper==1.2.1
 opencc-python-reimplemented==0.1.7
+jieba==0.42.1
+fonttools==4.60.1

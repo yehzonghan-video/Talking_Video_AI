@@ -18,7 +18,7 @@ if (-not (Test-Path -LiteralPath $projectPython)) {
     if ($LASTEXITCODE -ne 0) { throw 'Python environment setup failed. Install Python 3.11 or newer.' }
 }
 $ErrorActionPreference = 'Continue'
-& $projectPython -c 'import streamlit, google.genai, pydantic' 2>$null
+& $projectPython -c 'import streamlit, google.genai, pydantic, jieba, fontTools' 2>$null
 $dependenciesReady = ($LASTEXITCODE -eq 0)
 $ErrorActionPreference = 'Stop'
 if (-not $dependenciesReady) {

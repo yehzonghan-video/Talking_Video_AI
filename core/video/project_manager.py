@@ -19,6 +19,14 @@ def validate_project(project: VideoProject):
     validate_decisions(project.suggestions, project.media.duration, project.transcript)
     if any(s.end > project.media.duration for s in project.silences):
         raise VideoError('停頓時間超出影片長度。')
+    if project.subtitles:
+        for cue in project.subtitles.cues:
+            if any(s.end > project.media.duration for s in cue.spans):
+                raise VideoError('字幕原始時間超出影片長度。')
+            if any(b.start < a.end for a, b in zip(cue.spans, cue.spans[1:])):
+                raise VideoError('字幕來源片段必須依原片時間排序且不能重疊。')
+            if any(not any(a.start >= s.start - .001 and a.end <= s.end + .001 for s in cue.spans) for a in cue.atoms):
+                raise VideoError('字幕詞語時間超出來源區間。')
 
 
 class VideoProjectManager:
@@ -61,4 +69,5 @@ class VideoProjectManager:
         project.id = identifier()
         project.revision = 0
         project.output_key, project.output_timeline, project.export_status = None, None, '未輸出'
+        project.output_signature = ''
         return self.save(project)

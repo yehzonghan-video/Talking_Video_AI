@@ -17,8 +17,11 @@ def main():
     if all(p.is_file() for p in existing):
         for executable in existing:
             subprocess.run([str(executable), '-version'], check=True, capture_output=True, timeout=15)
-        print('Existing project FFmpeg and FFprobe are ready. No download needed.', flush=True)
-        return
+        filters = subprocess.run([str(existing[0]), '-hide_banner', '-filters'], check=True, capture_output=True, text=True, timeout=15)
+        if any(' ass ' in line for line in filters.stdout.splitlines()):
+            print('Existing project FFmpeg / FFprobe and libass subtitles are ready. No download needed.', flush=True)
+            return
+        print('Existing FFmpeg has no libass subtitle filter; upgrading the project copy only.', flush=True)
     archive = ROOT / '.tmp' / 'ffmpeg-essentials.zip'
     archive.parent.mkdir(parents=True, exist_ok=True)
     if archive.exists():

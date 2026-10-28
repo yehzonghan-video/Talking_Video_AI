@@ -1,5 +1,6 @@
 from pathlib import Path
 from uuid import uuid4
+from contextlib import ExitStack
 from core.video.schemas import Timeline, MediaInfo
 from core.video.assets import sha256
 from core.video.ffmpeg import run
@@ -9,7 +10,7 @@ from core.video.errors import VideoError
 
 
 def render(source: Path, output: Path, timeline: Timeline, media: MediaInfo, expected_sha: str,
-           preview: bool = False, progress=None) -> Path:
+           preview: bool = False, progress=None, *, subtitles=None, subtitle_style=None) -> Path:
     validate_timeline(timeline)
     source, output = source.resolve(), output.resolve()
     if source == output or output.exists():
@@ -39,16 +40,23 @@ def render(source: Path, output: Path, timeline: Timeline, media: MediaInfo, exp
             audio = 'anullsrc=r=48000:cl=stereo'
         filters.append(audio + f',apad=whole_dur={length:.6f},atrim=duration={length:.6f},aformat=sample_fmts=fltp:channel_layouts=stereo,'
             f'afade=t=in:d=0.008,afade=t=out:st={max(0, length - .008):.6f}:d=0.008[a{i}]')
-    filters.append(''.join(f'[v{i}][a{i}]' for i in range(count)) + f'concat=n={count}:v=1:a=1[v][a]')
+    filters.append(''.join(f'[v{i}][a{i}]' for i in range(count)) + f'concat=n={count}:v=1:a=1' + ('[vbase][a]' if subtitles else '[v][a]'))
+    resources = ExitStack()
     try:
+        if subtitles:
+            from core.subtitles.burn import burn_filter
+            from core.subtitles.schemas import CaptionStyle
+            duration = sum(s.end - s.start for s in timeline.keep_segments)
+            overlay = resources.enter_context(burn_filter(output.parent, subtitles, subtitle_style or CaptionStyle(), media, duration))
+            filters.append(f'[vbase]{overlay}[v]')
         script.write_text(';\n'.join(filters), encoding='utf-8')
         if progress:
             progress('正在重新編碼並串接片段，請稍候', .2)
-        run('ffmpeg', ['-v', 'error', '-nostdin', '-copyts', '-start_at_zero', '-i', str(source),
+        run('ffmpeg', ['-v', 'error', '-nostdin', '-filter_complex_threads', '2', '-copyts', '-start_at_zero', '-i', str(source),
             '-filter_complex_script', str(script), '-map', '[v]', '-map', '[a]',
-            '-c:v', 'libx264', '-preset', 'ultrafast' if preview else 'fast', '-crf', '26' if preview else '20',
+            '-c:v', 'libx264', '-threads', '2', '-preset', 'ultrafast' if preview else 'fast', '-crf', '26' if preview else '20',
             '-vsync', '0', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
-            '-metadata:s:v:0', 'rotate=0', '-movflags', '+faststart', str(work)], timeout=1800)
+            '-metadata:s:v:0', 'rotate=0', '-movflags', '+faststart', str(work)], timeout=1800, cwd=output.parent)
         info = probe(work, decode=True)
         expected_duration = sum(s.end - s.start for s in timeline.keep_segments)
         if abs(info.duration - expected_duration) > max(.15, count / fps + .05):
@@ -67,5 +75,6 @@ def render(source: Path, output: Path, timeline: Timeline, media: MediaInfo, exp
             progress('影片輸出完成', 1.0)
         return output
     finally:
+        resources.close()
         script.unlink(missing_ok=True)
         work.unlink(missing_ok=True)

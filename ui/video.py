@@ -18,6 +18,8 @@ from core.video.renderer import render as render_video
 from core.video.service import analyze, confirm_timeline, restore_timeline
 from core.transcription.provider import FasterWhisperProvider
 from ui.settings import ROOT, setting
+from ui.subtitles import render as render_subtitles
+from core.subtitles.service import delivery_cues, delivery_signature
 
 
 def resources(s):
@@ -160,15 +162,25 @@ def decisions_editor(project, manager, assets):
 
 
 def export_section(manager, assets, project):
-    st.subheader('五、預覽與輸出 MP4')
+    st.subheader('六、預覽與輸出 MP4')
     timeline = project.timelines[-1]
+    captioned = bool(project.subtitles and project.subtitles.enabled)
+    signature = delivery_signature(project)
+    st.caption('目前輸出：' + ('帶字幕 MP4（已保存的字幕與樣式）' if captioned else '無字幕 MP4'))
+    try:
+        options = {'subtitles': delivery_cues(project), 'subtitle_style': project.subtitles.style} if captioned else {}
+    except VideoError as exc:
+        st.info(str(exc) + ' 也可先關閉字幕，輸出原本的粗剪影片。')
+        return
     st.caption(f'目前使用已保存的 V{timeline.number}。表格中尚未保存的調整不會加入預覽或輸出。')
-    preview_key = f'preview-{timeline.number}.mp4'
+    preview_key = f'preview-{timeline.number}-{signature}.mp4' if captioned else f'preview-{timeline.number}.mp4'
     preview = assets.path(project.id, preview_key)
     if st.button('產生粗剪預覽'):
         if not preview.exists():
             with st.spinner('正在產生較小的預覽影片…'):
-                render_video(assets.source(project), preview, timeline, project.media, project.source_sha256, preview=True, progress=progress_widget())
+                render_video(assets.source(project), preview, timeline, project.media, project.source_sha256, preview=True, progress=progress_widget(), **options)
+                from core.subtitles.burn import prune_previews
+                prune_previews(assets, project.id, preserve=preview)
         st.rerun()
     if preview.exists():
         st.video(str(preview), width=360)
@@ -176,12 +188,14 @@ def export_section(manager, assets, project):
     if st.button('輸出 MP4', type='primary', disabled=not confirmed):
         key = f'output-v{timeline.number}-{uuid4().hex[:8]}.mp4'
         with st.spinner('正在輸出原比例影片，請保持頁面開啟…'):
-            render_video(assets.source(project), assets.path(project.id, key), timeline, project.media, project.source_sha256, progress=progress_widget())
+            render_video(assets.source(project), assets.path(project.id, key), timeline, project.media, project.source_sha256, progress=progress_widget(), **options)
         updated = project.model_copy(deep=True)
         updated.output_key, updated.output_timeline, updated.export_status = key, timeline.number, '已輸出'
+        updated.output_signature = signature
         manager.save(updated)
         st.rerun()
-    if project.output_key and project.output_timeline == timeline.number:
+    if (project.output_key and project.output_timeline == timeline.number and
+            (project.output_signature == signature or (not project.output_signature and not captioned))):
         output = assets.path(project.id, project.output_key)
         if output.exists():
             st.success('MP4 已輸出，可預覽及下載。')
@@ -192,7 +206,7 @@ def export_section(manager, assets, project):
 
 def render(s):
     st.header('AI 影片粗剪')
-    st.write('選腳本 → 上傳連續拍攝的影片 → 分析 → 確認剪輯 → 輸出')
+    st.write('選腳本 → 上傳影片 → 分析 → 確認剪輯 → 確認字幕 → 輸出')
     st.info('原片保持不變。重講與口誤預設保留，請逐項確認；時間來自音訊分析，仍需聽過剪輯點。')
     st.caption('目前為本機處理：每支最多500 MB／15分鐘。雲端本機檔案不保證永久保存，請同時備份專案 JSON 與原片；大型影片建議在這台電腦處理。')
     try:
@@ -238,4 +252,5 @@ def render(s):
         st.video(str(source), start_time=start, width=360)
     analysis_section(s, manager, assets, project)
     decisions_editor(project, manager, assets)
+    render_subtitles(project, manager, assets)
     export_section(manager, assets, project)

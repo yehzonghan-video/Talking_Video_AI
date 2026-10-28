@@ -1,6 +1,7 @@
 from typing import Literal
 from pydantic import Field, model_validator
 from core.storage.schemas import StrictModel, identifier, now
+from core.subtitles.schemas import SubtitleTrack
 
 
 class Interval(StrictModel):
@@ -123,6 +124,8 @@ class VideoProject(StrictModel):
     export_status: Literal['未輸出', '已輸出'] = '未輸出'
     output_key: str | None = None
     output_timeline: int | None = None
+    subtitles: SubtitleTrack | None = None
+    output_signature: str = ''
 
     @model_validator(mode='after')
     def timeline_versions(self):
