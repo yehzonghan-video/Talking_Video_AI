@@ -32,7 +32,7 @@ def environment_check(assets):
 
 def render(project, manager, assets):
     st.subheader('五、自動字幕')
-    st.caption('字幕使用實際口播辨識，不使用原稿代替，也不呼叫 Gemini。時間顯示為剪輯後影片的秒數。')
+    st.caption('字幕文字以本專案已保存逐字稿為準；辨識僅協助時間對齊，不呼叫 Gemini。時間顯示為剪輯後影片秒數。')
     if project.subtitles is None:
         if not project.transcript or not project.transcript.segments:
             st.info('先按「開始分析」完成語音辨識，再產生字幕；無聲影片仍可輸出無字幕 MP4。')

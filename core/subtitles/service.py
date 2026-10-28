@@ -1,7 +1,7 @@
 import hashlib
 import json
 from core.subtitles.schemas import SubtitleTrack, SourceCaption, CaptionStyle, OutputCaption
-from core.subtitles.segmentation import from_transcript, traditional, cue_from_atoms, group_atoms
+from core.subtitles.segmentation import traditional, cue_from_atoms, group_atoms
 from core.subtitles.mapping import map_captions, output_to_source, validate_output, time_map
 from core.video.errors import VideoError
 
@@ -11,18 +11,21 @@ def transcript_signature(transcript):
 
 
 def generate(project, manager, replace=False, transcript=None):
-    if project.subtitles is not None and not replace:
+    from core.subtitles.script_alignment import align_script, script_signature
+    authoritative = script_signature(project.script_snapshot)
+    if project.subtitles is not None and not replace and project.subtitles.text_source == 'script' and project.subtitles.script_signature == authoritative:
         return project  # No accidental resegmentation or loss of corrections.
     transcript = transcript or project.transcript
     if not transcript or not transcript.segments or transcript.timing != 'acoustic-alignment':
         raise VideoError('請先完成影片語音辨識，才能由實際口播產生字幕。')
     updated = project.model_copy(deep=True)
     old = updated.subtitles
-    updated.subtitles = SubtitleTrack(cues=from_transcript(transcript), source_signature=transcript_signature(transcript),
+    aligned, missing = align_script(project.script_snapshot, transcript, project.timelines[-1])
+    updated.subtitles = SubtitleTrack(cues=aligned, source_signature=transcript_signature(transcript),
         revision=old.revision + 1 if old else 1, style=old.style if old else CaptionStyle(),
-        enabled=old.enabled if old else True, note='沿用聲學辨識；字幕未呼叫 Gemini。')
-    from core.subtitles.correction import prepare_track
-    if old and replace:
+        enabled=old.enabled if old else True, note='逐字稿為文字來源；ASR 僅提供聲學時間，未呼叫 Gemini。',
+        text_source='script', script_signature=authoritative, unaligned=missing)
+    if old:
         manual = [c.model_copy(deep=True) for c in old.cues if c.manual]
         if manual:
             untouched = []
@@ -34,7 +37,9 @@ def generate(project, manager, replace=False, transcript=None):
                     untouched.append(cue)
             updated.subtitles.cues = sorted(untouched + manual, key=lambda c: c.spans[0].start)
             updated.subtitles.note += ' 已保留人工修改與人工確認的字幕。'
-    updated.subtitles = prepare_track(updated.subtitles, project.script_snapshot)
+    # Script captions already contain the authoritative wording. Do not run
+    # ASR correction variants over them, including after a page rerun.
+    updated.subtitles.original_cues = [c.model_copy(deep=True) for c in updated.subtitles.cues]
     if old and replace:
         preserved = {c.id for c in updated.subtitles.cues if c.manual}
         existing = {c.id for c in updated.subtitles.corrections}
@@ -55,10 +60,11 @@ def save_edits(project, manager, rows, style, enabled):
     source_by_id = {c.id: c for c in project.subtitles.cues}
     outputs, sources, retained = [], [], {}
     for row in rows:
-        text = traditional(str(row.get('text') or '')).replace('\r', '')
+        raw_text = str(row.get('text') or '')
+        text = (raw_text if project.subtitles.text_source == 'script' else traditional(raw_text)).replace('\r', '')
         highlights = row.get('highlights') or []
         if isinstance(highlights, str):
-            highlights = [traditional(h) for h in highlights.split('｜') if h.strip()]
+            highlights = [(h if project.subtitles.text_source == 'script' else traditional(h)) for h in highlights.split('｜') if h.strip()]
         if any(h not in text.replace('\n', '') for h in highlights):
             raise VideoError('黃色重點必須是該段字幕中已有的文字。')
         try:
@@ -121,6 +127,18 @@ def delivery_cues(project):
 def save_preferences(project, manager, *, enabled):
     updated = project.model_copy(deep=True)
     updated.subtitles.enabled = enabled
+    updated.subtitles.revision += 1
+    return manager.save(updated)
+
+
+def resolve_unaligned(project, manager, index, start=None, end=None):
+    updated = project.model_copy(deep=True)
+    text = updated.subtitles.unaligned.pop(index)
+    if start is not None and end is not None:
+        spans = output_to_source(start, end, project.timelines[-1])
+        updated.subtitles.cues.append(SourceCaption(text=text, spans=spans, manual=True))
+        updated.subtitles.cues.sort(key=lambda c: c.spans[0].start)
+        validate_output(map_captions(updated.subtitles, project.timelines[-1]), time_map(project.timelines[-1])[-1].output_end)
     updated.subtitles.revision += 1
     return manager.save(updated)
 

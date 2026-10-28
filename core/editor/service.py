@@ -126,7 +126,7 @@ def save_document(project_id, manager, payload):
             raise VideoError('字幕識別碼重複。')
         sources = []
         for item in request.captions:
-            text = traditional(item.text)
+            text = item.text if track.text_source == 'script' else traditional(item.text)
             if any(s.end > project.media.duration for s in item.spans):
                 raise VideoError('字幕時間超出原片。')
             if any(b.start < a.end for a, b in zip(item.spans, item.spans[1:])):

@@ -191,7 +191,8 @@ def export_section(manager, assets, project):
         if output.exists():
             st.success('MP4 已輸出，可預覽及下載。')
             st.video(str(output), width=360)
-            st.download_button('下載 MP4', lambda: output.read_bytes(), file_name=filename(project.title), mime='video/mp4', on_click='ignore')
+            from ui.downloads import mp4_download
+            mp4_download(project, assets)
 
 
 def render(s):

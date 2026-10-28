@@ -100,6 +100,8 @@ def variant(cue, correction, decision):
 def prepare_track(track, script):
     """Return a copy: raw analysis, correction decisions and manual edits stay distinct."""
     result = track.model_copy(deep=True)
+    if result.text_source == 'script':
+        return result
     if result.corrections:
         return result
     result.original_cues = [c.model_copy(deep=True) for c in result.cues]

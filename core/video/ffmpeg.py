@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from core.video.errors import VideoError
+from core.video.diagnostics import record
 
 
 def binary(name: str) -> str:
@@ -29,5 +30,11 @@ def run(name: str, args: list[str], timeout: int = 600, *, cwd: Path | None = No
     except OSError as exc:
         raise VideoError('無法啟動影片處理工具，請檢查 FFmpeg 安裝。') from exc
     if result.returncode:
+        # Record diagnostic categories from stderr, never the command, source
+        # paths or subtitle text that FFmpeg can echo in its complete stderr.
+        causes = [label for needle, label in [('no space left', 'disk_full'), ('cannot allocate memory', 'memory'),
+            ('invalid data', 'invalid_media'), ('permission denied', 'permission'), ('no such file', 'missing_file')]
+            if needle in result.stderr.lower()]
+        record('media_tool_failed', tool=name, returncode=result.returncode, causes=causes)
         raise VideoError('影片處理失敗：檔案可能損壞、格式不支援，或磁碟空間不足。原始影片未變更。')
     return result

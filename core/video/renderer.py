@@ -7,6 +7,8 @@ from core.video.ffmpeg import run
 from core.video.media_probe import probe
 from core.video.timeline import validate_timeline
 from core.video.errors import VideoError
+from time import monotonic
+from core.video.diagnostics import record, exception_details
 
 
 def render(source: Path, output: Path, timeline: Timeline, media: MediaInfo, expected_sha: str,
@@ -42,6 +44,7 @@ def render(source: Path, output: Path, timeline: Timeline, media: MediaInfo, exp
             f'afade=t=in:d=0.008,afade=t=out:st={max(0, length - .008):.6f}:d=0.008[a{i}]')
     filters.append(''.join(f'[v{i}][a{i}]' for i in range(count)) + f'concat=n={count}:v=1:a=1' + ('[vbase][a]' if subtitles else '[v][a]'))
     resources = ExitStack()
+    started = monotonic()
     try:
         if subtitles:
             from core.subtitles.burn import burn_filter
@@ -52,11 +55,12 @@ def render(source: Path, output: Path, timeline: Timeline, media: MediaInfo, exp
         script.write_text(';\n'.join(filters), encoding='utf-8')
         if progress:
             progress('正在重新編碼並串接片段，請稍候', .2)
-        run('ffmpeg', ['-v', 'error', '-nostdin', '-filter_complex_threads', '2', '-copyts', '-start_at_zero', '-i', str(source),
+        result = run('ffmpeg', ['-v', 'error', '-nostdin', '-filter_complex_threads', '2', '-copyts', '-start_at_zero', '-i', str(source),
             '-filter_complex_script', str(script), '-map', '[v]', '-map', '[a]',
             '-c:v', 'libx264', '-threads', '2', '-preset', 'ultrafast' if preview else 'fast', '-crf', '26' if preview else '20',
             '-vsync', '0', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
             '-metadata:s:v:0', 'rotate=0', '-movflags', '+faststart', str(work)], timeout=1800, cwd=output.parent)
+        record('ffmpeg_finished', returncode=result.returncode, exists=work.exists(), bytes=work.stat().st_size if work.exists() else 0)
         info = probe(work, decode=True)
         expected_duration = sum(s.end - s.start for s in timeline.keep_segments)
         if abs(info.duration - expected_duration) > max(.15, count / fps + .05):
@@ -71,9 +75,14 @@ def render(source: Path, output: Path, timeline: Timeline, media: MediaInfo, exp
             raise VideoError('處理過程中原片被外部修改，停止交付輸出。')
         # Atomic publish, no overwrite. work is always in the same filesystem as output.
         work.rename(output)
+        record('output_validated', exists=output.exists(), bytes=output.stat().st_size,
+               elapsed_seconds=round(monotonic() - started, 3), decoded=True)
         if progress:
             progress('影片輸出完成', 1.0)
         return output
+    except Exception as exc:
+        record('output_failed', exists=work.exists(), elapsed_seconds=round(monotonic() - started, 3), **exception_details(exc))
+        raise
     finally:
         resources.close()
         script.unlink(missing_ok=True)

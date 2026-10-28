@@ -138,7 +138,7 @@ def test_script_correction_choices_are_server_validated(caption_project):
     project, manager, _ = caption_project
     project = generate(project, manager)
     payload = request(project)
-    payload['corrections'][0]['id'] = 'untrusted-correction'
+    payload['corrections'].append(dict(id='untrusted-correction', decision='accepted'))
     with pytest.raises(VideoError, match='校正'):
         save_document(project.id, manager, payload)
 

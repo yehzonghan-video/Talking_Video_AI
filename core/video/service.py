@@ -22,9 +22,8 @@ def prepare_delivery(project, manager):
         updated, created = apply_automatic_timeline(project)
         if created:
             project = manager.save(updated)
-    if project.subtitles is None:
-        from core.subtitles.service import generate
-        project = generate(project, manager)
+    from core.subtitles.service import generate
+    project = generate(project, manager)
     return project
 
 

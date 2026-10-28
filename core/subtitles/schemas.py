@@ -55,6 +55,9 @@ class SubtitleTrack(StrictModel):
     note: str = ''
     original_cues: list[SourceCaption] = Field(default_factory=list, max_length=3000)
     corrections: list[ScriptCorrection] = Field(default_factory=list, max_length=3000)
+    text_source: Literal['asr', 'script'] = 'asr'
+    script_signature: str = ''
+    unaligned: list[str] = Field(default_factory=list, max_length=3000)
 
 
 class OutputCaption(Span):

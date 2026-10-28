@@ -43,6 +43,7 @@ def caption_project(media_files, tmp_path, draft, catalog):
             Word(start=.1, end=.4, text='先'), Word(start=.4, end=.8, text='确认'), Word(start=.8, end=1.5, text='需求。')]),
         Segment(id='s2', start=4, end=6.8, text='再安排预算。', words=[
             Word(start=4, end=4.4, text='再'), Word(start=4.4, end=5.4, text='安排'), Word(start=5.4, end=6.8, text='预算。')])])
+    project.script_snapshot = '先確認需求。\n再安排預算。'
     project = manager.save(project)
     return project, manager, assets
 

@@ -33,7 +33,7 @@ def test_analysis_direct_export_with_legacy_flags_and_latest_subtitle_pixels(cap
         def transcribe(self, *a):
             raise AssertionError('Existing recognition must be reused')
     saved = service.analyze(project, manager, assets, ASR())
-    assert saved.subtitles.enabled and saved.subtitles.corrections
+    assert saved.subtitles.enabled and saved.subtitles.text_source == 'script'
     doc = document(saved)
     assert doc['sources'] and any(c['selected'] and not c['confirmed'] for c in doc['cuts'])
     assert '三成' not in ''.join(c.text for c in delivery_cues(saved))
@@ -48,6 +48,13 @@ def test_analysis_direct_export_with_legacy_flags_and_latest_subtitle_pixels(cap
     payload['style'].update(preset='emphasis', font_size=72)
     saved = save_document(saved.id, manager, payload)
     burned = export_mp4(saved, manager, assets)
+    from ui import downloads
+    registered = []
+    monkeypatch.setattr(downloads.st, 'session_state', {})
+    monkeypatch.setattr(downloads.st, 'download_button', lambda *a, **kw: registered.append(kw))
+    downloads.mp4_download(burned, assets)
+    assert registered[0]['data'] == assets.path(burned.id, burned.output_key).read_bytes()
+    assert registered[0]['mime'] == 'video/mp4'
     assert '已經更新' in delivery_cues(burned)[-1].text
     frame = tmp_path / 'burned.png'
     run('ffmpeg', ['-v', 'error', '-ss', '2', '-i', str(assets.path(burned.id, burned.output_key)), '-frames:v', '1', str(frame)])

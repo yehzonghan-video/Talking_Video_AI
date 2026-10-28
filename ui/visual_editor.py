@@ -32,6 +32,21 @@ def mount(data, key):
 
 def render(project, manager, assets):
     st.subheader('影片與字幕編輯器')
+    st.caption(f'字幕文字採用本專案已保存的 V{project.script_version} 逐字稿；人工修字優先，辨識文字只協助對齊時間。')
+    if project.subtitles and project.subtitles.unaligned:
+        with st.expander(f'{len(project.subtitles.unaligned)} 句逐字稿無法對齊（不影響其他字幕輸出）'):
+            st.caption('這些句子目前不顯示字幕；可略過，或以剪輯後秒數手動指定時間。')
+            index = st.selectbox('無法對齊的逐字稿', range(len(project.subtitles.unaligned)),
+                format_func=lambda i: project.subtitles.unaligned[i], key='unaligned_' + project.id)
+            start = st.number_input('手動字幕開始（剪輯後秒數）', min_value=0., value=0., step=.1)
+            end = st.number_input('手動字幕結束（剪輯後秒數）', min_value=0., value=1., step=.1)
+            from core.subtitles.service import resolve_unaligned
+            if st.button('不顯示這一句'):
+                resolve_unaligned(project, manager, index)
+                st.rerun()
+            if st.button('套用手動時間'):
+                resolve_unaligned(project, manager, index, start, end)
+                st.rerun()
     data = document(project)
     data['media_url'] = video_reference(assets.source(project), project.id)
     data['raw_segments'] = [{'spans': [{'start': s.start, 'end': s.end}], 'text': s.text}
@@ -82,4 +97,9 @@ def render(project, manager, assets):
             and assets.path(project.id, project.output_key).exists()):
         output = assets.path(project.id, project.output_key)
         st.success('目前已保存版本的 MP4 已完成。')
-        st.download_button('下載 MP4', lambda: output.read_bytes(), file_name=filename(project.title), mime='video/mp4', on_click='ignore')
+        from ui.downloads import mp4_download
+        mp4_download(project, assets)
+    elif project.output_key and project.output_signature == delivery_signature(project):
+        from core.video.diagnostics import record
+        record('download_unavailable', exists=False, session_reference=False)
+        st.warning('已輸出的 MP4 檔案目前不存在，可能因雲端主機重建而遺失；請保留原片並重新輸出。')
