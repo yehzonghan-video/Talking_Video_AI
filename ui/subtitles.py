@@ -48,7 +48,7 @@ def render(project, manager, assets):
         st.rerun()
     cues = map_captions(track, timeline)
     if any(c.needs_review for c in cues):
-        st.warning('有字幕需要重新確認：可能缺少詞語時間，或剪輯已改變人工修字涵蓋的內容。請修正文字／時間並勾選「已確認」，再保存。')
+        st.warning('有字幕建議試聽確認：可能缺少詞語時間，或剪輯已改變人工修字涵蓋內容。仍可直接輸出；如要修正，可調整文字或時間後保存。')
     st.caption('可直接修字、修改時間，或新增／刪除列來拆分與合併字幕。建議每段1～2行、每行約12個中文字；可在文字中換行。')
     rows = [{'字幕ID': c.id, '開始（秒）': c.start, '結束（秒）': c.end, '字幕文字': c.text,
              '黃色重點': '｜'.join(c.highlights), '已確認': not c.needs_review, '提醒': c.review_reason} for c in cues]
@@ -70,7 +70,7 @@ def render(project, manager, assets):
                     'highlights': row['黃色重點'] if pd.notna(row['黃色重點']) else '', 'confirmed': bool(row['已確認'])})
             save_edits(project, manager, values, CaptionStyle(preset='emphasis' if preset == '重點字幕' else 'basic', font_size=size, bottom_percent=bottom), enabled)
             st.rerun()
-    st.caption('預覽、SRT與MP4只使用已保存的字幕及目前已確認剪輯；尚未保存的表格調整不會套用。')
+    st.caption('預覽、SRT與MP4只使用已保存的字幕及目前套用的剪輯；尚未保存的表格調整不會套用。')
     try:
         ready = delivery_cues(project)
     except VideoError as exc:
@@ -89,7 +89,7 @@ def render(project, manager, assets):
             st.image(str(frame), width=360)
     with st.expander('字幕時間映射與重新產生'):
         st.dataframe([{'原片開始': p.source_start, '原片結束': p.source_end, '輸出開始': p.output_start, '輸出結束': p.output_end} for p in time_map(timeline)], hide_index=True)
-        st.caption('修改或恢復剪輯後，字幕依原片座標自動重新映射。若切到人工修字，需重新確認該段。')
+        st.caption('修改或恢復剪輯後，字幕依原片座標自動重新映射。人工修字會保留，必要時以提醒提示你試聽。')
         replace = st.checkbox('以現有辨識重新產生未修改字幕，保留人工修字', key='replace_' + key)
         if st.button('重新產生字幕', disabled=not replace):
             generate(project, manager, replace=True)

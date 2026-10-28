@@ -4,7 +4,7 @@ from core.video.schemas import Interval, Decision, Transcript, Segment, Analysis
 from core.video.timeline import build_timeline, merge_intervals, validate_timeline, filename
 from core.video.errors import VideoError
 from core.video.project_manager import VideoProjectManager
-from core.video.service import confirm_timeline, restore_timeline
+from core.video.service import confirm_timeline, restore_timeline, apply_automatic_timeline
 from core.video.assets import LocalAssets
 from core.transcription.alignment import validate_transcript
 from core.editing.script_matcher import match_script
@@ -44,11 +44,12 @@ def test_empty_or_entire_removal_forbidden():
     with pytest.raises(VideoError): build_timeline(10, [Decision(start=0, end=11, kind='manual', reason='越界')], 2, '錯誤')
 
 
-def test_uncertain_speech_kept_and_confirmation_required():
+def test_selected_cut_does_not_require_manual_review_to_build_timeline():
     d = Decision(start=1, end=4, kind='retake', reason='疑似重講')
     assert build_timeline(10, [d], 1, '保留').keep_segments == [Interval(start=0, end=10)]
     d.selected = True
-    with pytest.raises(VideoError, match='逐項確認'): build_timeline(10, [d], 1, '風險')
+    timeline = build_timeline(10, [d], 1, '自動粗剪')
+    assert timeline.keep_segments == [Interval(start=0, end=1), Interval(start=4, end=10)]
 
 
 def test_alignment_rejects_model_guessed_and_duplicate_ids():
@@ -75,6 +76,67 @@ def test_emphasis_and_paraphrase_are_not_auto_deleted():
     decisions, matches = local_plan('裝潢前一定要先確認預算。', tr, [], AnalysisSettings(), 10)
     assert not any(d.selected for d in decisions)
     assert matches[0].status in ('matched', 'needs_review')
+
+
+def test_two_takes_keep_later_complete_script_matching_version():
+    tr = transcript('這個空間我們做了三成', '這個空間我們做了三層收納設計')
+    decisions, _ = local_plan('這個空間我們做了三層收納設計。', tr, [], AnalysisSettings(), 10)
+    automatic = [item for item in decisions if item.selected]
+    assert len(automatic) == 1
+    assert automatic[0].segment_ids == ['s0'] and not automatic[0].requires_review
+    timeline = build_timeline(10, decisions, 2, '自動粗剪')
+    assert timeline.keep_segments[0].start == pytest.approx(2)
+
+
+def test_three_takes_keep_last_complete_version_but_not_last_incomplete_attempt():
+    complete = '裝潢之前一定要確認水電配置'
+    tr = transcript('裝潢之前一定要', complete, '裝潢之前一定要確認')
+    decisions, _ = local_plan(complete + '。', tr, [], AnalysisSettings(), 12)
+    automatic = [item for item in decisions if item.selected]
+    assert [item.segment_ids for item in automatic] == [['s0']]
+    timeline = build_timeline(12, decisions, 2, '自動粗剪')
+    assert any(part.start == pytest.approx(2) and part.end == pytest.approx(12) for part in timeline.keep_segments)
+
+
+def test_intentional_emphasis_is_not_treated_as_retake():
+    tr = transcript('收納真的很重要', '收納真的很重要')
+    decisions, _ = local_plan('收納真的很重要。', tr, [], AnalysisSettings(), 8)
+    assert not any(item.selected for item in decisions)
+
+
+def test_analysis_result_directly_creates_automatic_timeline_without_overwriting_source():
+    p = project()
+    p.suggestions = [Decision(start=3, end=5, kind='silence', action='remove', reason='長停頓',
+                              requires_review=False, selected=True)]
+    updated, created = apply_automatic_timeline(p)
+    assert created and len(updated.timelines) == 2
+    assert updated.timelines[-1].keep_segments == [Interval(start=0, end=3), Interval(start=5, end=20)]
+    assert p.timelines[-1].keep_segments == [Interval(start=0, end=20)]
+
+
+def test_completed_recognition_analysis_persists_directly_exportable_automatic_cut(monkeypatch, tmp_path):
+    from core.video import service as video_service
+    from core.video.assets import sha256
+    manager, assets = VideoProjectManager(tmp_path / 'automatic.db'), LocalAssets(tmp_path / 'media')
+    p = project()
+    source = assets.source(p)
+    source.write_bytes(b'non-destructive-source')
+    p.source_sha256 = sha256(source)
+    p.transcript = transcript('第一句內容', '第二句內容')
+    p.transcript.model = 'already-aligned'
+    p = manager.save(p)
+    monkeypatch.setattr(video_service, 'detect_silences', lambda *args: [Interval(start=8, end=11)])
+    class ASR:
+        model_name = 'already-aligned'
+    saved = video_service.analyze(p, manager, assets, ASR(), settings=AnalysisSettings())
+    assert len(saved.timelines) == 2
+    assert any(item.selected for item in saved.timelines[-1].decisions)
+    assert '可直接預覽或輸出 MP4' in saved.analysis_note
+
+
+def test_no_usable_kept_segment_has_clear_error():
+    with pytest.raises(VideoError, match='不能刪除全部影片'):
+        build_timeline(5, [Decision(start=0, end=5, kind='manual', reason='錯誤範圍', selected=True)], 2, '無可用片段')
 
 
 def test_long_silence_preserves_breath_short_silence_kept():

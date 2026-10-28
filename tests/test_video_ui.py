@@ -50,7 +50,6 @@ def test_saved_project_manual_cut_restore_preview_export(monkeypatch, repo, cata
     assert len(manager.get(project.id).timelines) == 2
     by_label(at.button, '產生粗剪預覽').click().run()
     assert not at.exception and assets.path(project.id, 'preview-2.mp4').exists()
-    by_label(at.checkbox, '我已確認目前已保存的剪輯內容，準備輸出 MP4').check().run()
     by_label(at.button, '輸出 MP4').click().run()
     saved = manager.get(project.id)
     assert not at.exception and saved.export_status == '已輸出'

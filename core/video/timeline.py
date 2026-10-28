@@ -23,8 +23,6 @@ def build_timeline(duration: float, decisions: list[Decision], number: int, note
         if item.end > duration:
             raise VideoError('剪輯區間超出影片長度。')
         if item.selected:
-            if item.requires_review and not item.confirmed:
-                raise VideoError('涉及語音或不確定的片段必須逐項確認後才能刪除。')
             cuts.append(Interval(start=item.start, end=item.end))
     cuts = merge_intervals(cuts, duration)
     keep, cursor = [], 0.0

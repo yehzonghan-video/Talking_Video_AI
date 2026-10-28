@@ -143,12 +143,12 @@ def test_script_correction_choices_are_server_validated(caption_project):
         save_document(project.id, manager, payload)
 
 
-def test_manual_cut_must_be_confirmed(caption_project):
+def test_manual_cut_can_override_default_without_confirmation_gate(caption_project):
     project, manager, _ = caption_project
     payload = request(generate(project, manager))
     payload['cuts'].append(dict(id='manual', start=2, end=3, selected=True, confirmed=False))
-    with pytest.raises(VideoError, match='確認'):
-        save_document(project.id, manager, payload)
+    saved = save_document(project.id, manager, payload)
+    assert any(item.id == 'manual' and item.selected for item in saved.timelines[-1].decisions)
 
 
 def test_editor_export_uses_saved_content_and_is_reused(caption_project, monkeypatch):

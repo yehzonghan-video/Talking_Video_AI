@@ -15,6 +15,7 @@ from core.video.schemas import AnalysisSettings, Decision
 from core.video.uploader import create_project, reattach_source
 from core.video.timeline import filename
 from core.video.renderer import render as render_video
+from core.video.export_service import export_mp4
 from core.video.service import analyze, confirm_timeline, restore_timeline
 from core.transcription.provider import FasterWhisperProvider
 from ui.settings import ROOT, setting
@@ -86,7 +87,7 @@ def analysis_section(s, manager, assets, project):
         min_pause = st.number_input('列為過長停頓的秒數', min_value=.5, max_value=10.0, value=project.settings.min_pause, step=.1)
         retain = st.number_input('縮短後保留的呼吸空間（秒）', min_value=.3, max_value=1.5, value=project.settings.retain_pause, step=.1)
         threshold = st.slider('靜音判斷門檻（dB）', -60, -15, value=project.settings.noise_db)
-        st.caption('低於0.5秒的停頓不列入建議。只有不碰到辨識語音的長停頓會預先勾選，仍需保存確認。')
+        st.caption('低於0.5秒的停頓不列入建議。系統會自動縮短有明確聲學邊界的長停頓，保留自然呼吸空間。')
     semantic = st.checkbox('加入 Gemini 語意分析（將本次腳本快照與辨識文字傳送至 Gemini，影片與音訊留在本機）', value=bool(s.provider.api_key), disabled=not bool(s.provider.api_key))
     rerun = st.checkbox('重新分析剪輯建議（沿用已完成的同模型語音辨識）', value=False)
     if st.button('開始分析', type='primary'):
@@ -112,7 +113,7 @@ def decisions_editor(project, manager, assets):
     latest = project.timelines[-1]
     source = st.radio('編輯依據', ['目前已確認時間軸', '最新分析建議'], index=1 if len(project.timelines) == 1 and project.suggestions else 0, horizontal=True)
     decisions = project.suggestions if source == '最新分析建議' else latest.decisions
-    st.caption('「刪除／縮短」未勾選的片段會保留。涉及語音或手動修改時間的片段，需同時勾選「人工確認」。按保存後才會建立新版本。')
+    st.caption('「刪除／縮短」未勾選的片段會保留。提醒僅供試聽參考，不會阻止預覽或輸出；按保存後才會建立新版本。')
     edited = []
     if decisions:
         with st.expander('逐段查看原因與試聽'):
@@ -183,15 +184,9 @@ def export_section(manager, assets, project):
         st.rerun()
     if preview.exists():
         st.video(str(preview), width=360)
-    confirmed = st.checkbox('我已確認目前已保存的剪輯內容，準備輸出 MP4', key=f'export_confirm_{project.id}_{timeline.number}')
-    if st.button('輸出 MP4', type='primary', disabled=not confirmed):
-        key = f'output-v{timeline.number}-{uuid4().hex[:8]}.mp4'
+    if st.button('輸出 MP4', type='primary'):
         with st.spinner('正在輸出原比例影片，請保持頁面開啟…'):
-            render_video(assets.source(project), assets.path(project.id, key), timeline, project.media, project.source_sha256, progress=progress_widget(), **options)
-        updated = project.model_copy(deep=True)
-        updated.output_key, updated.output_timeline, updated.export_status = key, timeline.number, '已輸出'
-        updated.output_signature = signature
-        manager.save(updated)
+            export_mp4(project, manager, assets)
         st.rerun()
     if (project.output_key and project.output_timeline == timeline.number and
             (project.output_signature == signature or (not project.output_signature and not captioned))):
@@ -204,8 +199,8 @@ def export_section(manager, assets, project):
 
 def render(s):
     st.header('AI 影片粗剪')
-    st.write('選腳本 → 上傳影片 → 分析 → 確認剪輯 → 確認字幕 → 輸出')
-    st.info('原片保持不變。重講與口誤預設保留，請逐項確認；時間來自音訊分析，仍需聽過剪輯點。')
+    st.write('選腳本 → 上傳影片 → 自動粗剪 → 預覽／調整 → 輸出')
+    st.info('原片保持不變。完成分析後會直接套用高信心的重講與停頓調整；低信心片段只顯示提醒，不會阻止輸出。')
     st.caption('目前為本機處理：每支最多500 MB／15分鐘。雲端本機檔案不保證永久保存，請同時備份專案 JSON 與原片；大型影片建議在這台電腦處理。')
     try:
         binary('ffmpeg')
@@ -264,5 +259,9 @@ def render(s):
                 from core.subtitles.service import generate
                 generate(project, manager)
                 st.rerun()
+        if project.transcript:
+            latest = project.timelines[-1]
+            selected_cuts = sum(item.selected for item in latest.decisions)
+            st.success(f'已完成自動粗剪｜目前套用 {selected_cuts} 個調整，可直接播放或輸出 MP4。')
         from ui.visual_editor import render as render_visual_editor
         render_visual_editor(project, manager, assets)

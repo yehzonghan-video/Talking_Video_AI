@@ -25,7 +25,7 @@ export default function (component) {
   <div class="actions"><button data-action="split">依播放位置拆分</button><button data-action="merge">合併下一段</button><button data-action="review">此段已試聽確認</button></div><label>黃色重點（多個用｜分隔）<input class="highlights" type="text"></label><button data-action="highlight">將選取文字標黃</button><label>原始辨識參考</label><div class="raw"></div>
   <div class="row"><label>字幕樣式<select class="preset"><option value="basic">基本字幕</option><option value="emphasis">重點字幕</option></select></label><label><input class="enabled" type="checkbox"> 顯示／輸出字幕</label></div>
   <label>字體大小 <input class="font-size" type="range" min="24" max="96" step="1"></label><label>距離底部 <input class="bottom" type="range" min="5" max="35" step="1"></label><div class="cue-list" aria-label="字幕片段清單"></div></div>
-  <div data-panel="cuts" class="hidden"><div class="cut-summary"></div><div class="actions"><button data-action="listen-cut">試看此片段</button><button data-action="toggle-cut">確認刪除／保留</button></div><p class="hint">紅色為重講建議，灰色為停頓；斜線表示已確認刪除。原片永遠保留，可取消刪除。</p><div class="row"><label>手動刪除開始<input class="manual-start" type="number" min="0" step=".01" value="0"></label><label>手動刪除結束<input class="manual-end" type="number" min="0" step=".01" value="1"></label></div><button data-action="manual-cut">確認加入刪除片段</button></div>
+  <div data-panel="cuts" class="hidden"><div class="cut-summary"></div><div class="actions"><button data-action="listen-cut">試看此片段</button><button data-action="toggle-cut">套用刪除／保留</button></div><p class="hint">紅色為重講建議，灰色為停頓；斜線表示已套用刪除。提醒可供試聽，但不會阻止輸出；原片永遠保留，可隨時取消刪除。</p><div class="row"><label>手動刪除開始<input class="manual-start" type="number" min="0" step=".01" value="0"></label><label>手動刪除結束<input class="manual-end" type="number" min="0" step=".01" value="1"></label></div><button data-action="manual-cut">加入刪除片段</button></div>
   <div data-panel="correction" class="hidden"><p class="hint">腳本只供參考。數字、價格、尺寸與近音差異需確認；人工修字優先，原始辨識不會改動。</p><div class="correction-list"></div></div></div></div>
   <div class="timeline-title"><strong>原片內容與建議</strong><span class="hint">綠：保留　紅：重講　灰：停頓</span></div><div class="overview" aria-label="原片剪輯建議軌道"><div class="overview-head"></div></div>
   <div class="timeline-title"><strong>剪輯後影片／字幕</strong><label>縮放 <input class="zoom" type="range" min="15" max="160" value="65" aria-label="時間軸縮放"></label></div><div class="timeline"><div class="tracks"><div class="ruler"></div><div class="keep-track"></div><div class="caption-track" aria-label="字幕時間軸"></div><div class="playhead"></div></div></div>
@@ -589,12 +589,7 @@ export default function (component) {
       if (conflict) throw Error("專案版本已更新，請先下載草稿並重新載入。");
       if (pending) return;
       const request = makeRequest(doc, history.state);
-      if (action !== "save")
-        validateCues(
-          derived.cues,
-          derived.duration,
-          history.state.enabled || action === "srt",
-        );
+      if (action !== "save") validateCues(derived.cues, derived.duration);
       store();
       pending = {
         id: request.operation_id,

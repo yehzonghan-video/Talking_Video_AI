@@ -10,6 +10,31 @@ from core.editing.edit_planner import local_plan, semantic_plan
 from core.video.errors import VideoError
 
 
+def apply_automatic_timeline(project):
+    """Apply selected high-confidence cuts immediately, without touching source media.
+
+    A new immutable timeline is created only if its decisions or retained ranges
+    differ from the current one.  Existing subtitle source cues are intentionally
+    left untouched; their output positions are derived from this timeline.
+    """
+    latest = project.timelines[-1]
+    # Re-analysis must never replace a deliberately saved manual timeline. A
+    # user may explicitly return to the original/automatic version before
+    # asking for a different automatic result.
+    if latest.number > 1 and not latest.note.startswith('自動粗剪'):
+        return project, False
+    candidate = build_timeline(project.media.duration, project.suggestions, latest.number + 1, '自動粗剪')
+    same_cuts = (candidate.keep_segments == latest.keep_segments and
+                 [item.model_dump() for item in candidate.decisions] == [item.model_dump() for item in latest.decisions])
+    if same_cuts:
+        return project, False
+    updated = project.model_copy(deep=True)
+    updated.timelines.append(candidate)
+    updated.output_key, updated.output_timeline, updated.output_signature = None, None, ''
+    updated.export_status = '未輸出'
+    return updated, True
+
+
 def analyze(project, manager, assets, asr, ai=None, settings=None, force=False, progress=None):
     settings = settings or AnalysisSettings()
     update = progress or (lambda *args: None)
@@ -36,26 +61,37 @@ def analyze(project, manager, assets, asr, ai=None, settings=None, force=False, 
     suggestions, matches = local_plan(project.script_snapshot, project.transcript, silences, settings, project.media.duration)
     project.silences, project.suggestions, project.matches = silences, suggestions, matches
     project.settings = settings
-    project.analysis_note = '完成本機聲學與文字分析；語音刪除仍需逐項確認。'
+    project.analysis_note = '完成本機聲學與文字分析；正在直接套用高信心自動粗剪。'
     project = manager.save(project)
     if ai:
         update('產生 AI 語意剪輯建議', .78)
         try:
             extra, semantic_matches = semantic_plan(ai, project.script_snapshot, project.transcript, project.media.duration, settings.padding)
-            # Semantic judgments replace duplicate lexical suggestions, retaining silence suggestions.
+            # Semantic judgments are optional hints.  They must not replace the
+            # local high-confidence retake decisions that power automatic cuts.
             if extra:
-                project.suggestions = [s for s in suggestions if s.kind == 'silence'] + extra
+                existing = {(item.start, item.end, item.kind) for item in project.suggestions}
+                project.suggestions.extend(item for item in extra if (item.start, item.end, item.kind) not in existing)
             by_index = {m.script_index: m for m in matches}
             by_index.update({m.script_index: m for m in semantic_matches})
             project.matches = [by_index[i] for i in sorted(by_index)]
-            project.analysis_note = '完成本機時間分析及 AI 語意比對；所有語音刪除預設保留，請逐項確認。'
+            project.analysis_note = '完成本機時間分析及 AI 語意比對；已直接套用高信心粗剪，其餘建議可選擇查看。'
         except AIError as exc:
-            project.analysis_note = 'AI 文字語意比對未完成：' + str(exc) + ' 已保留本機停頓、重講分析，可先人工確認。'
-            # Do not cache a failed semantic call as a successful analysis.
+            project.analysis_note = 'AI 文字語意比對未完成：' + str(exc) + ' 已套用本機高信心粗剪；其餘內容仍保留。'
+            # Do not cache a failed semantic call as a successful analysis, but
+            # still deliver the safe local result.
             project.analysis_signature = ''
+            project, created = apply_automatic_timeline(project)
+            selected = sum(item.selected for item in project.timelines[-1].decisions)
+            project.analysis_note += (f' 已完成自動粗剪（{selected} 個調整）。' if created
+                                      else ' 已保留使用者目前保存的剪輯時間軸。')
             return manager.save(project)
     project.analysis_signature = signature
-    update('剪輯建議已完成，請確認時間軸', 1.0)
+    project, created = apply_automatic_timeline(project)
+    selected = sum(item.selected for item in project.timelines[-1].decisions)
+    project.analysis_note += (f' 已完成自動粗剪（{selected} 個調整），可直接預覽或輸出 MP4。' if created
+                              else ' 已保留使用者目前保存的剪輯時間軸，可直接預覽或輸出 MP4。')
+    update('已完成自動粗剪，可直接預覽或輸出', 1.0)
     return manager.save(project)
 
 

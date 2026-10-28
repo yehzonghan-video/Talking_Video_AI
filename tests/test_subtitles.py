@@ -102,11 +102,12 @@ def test_partial_word_cut_requires_review():
         validate_output(cues, 2, require_reviewed=True)
 
 
-def test_manual_caption_cut_is_retained_but_blocks_delivery_until_confirmed():
+def test_manual_caption_cut_is_retained_and_low_confidence_does_not_block_delivery():
     tr = SubtitleTrack(source_signature='0' * 64, cues=[SourceCaption(text='人工修好的實際口播', spans=[Span(start=4, end=12)], manual=True)])
     cue = map_captions(tr, cut_timeline())[0]
     assert cue.text == '人工修好的實際口播' and cue.needs_review
     assert (cue.start, cue.end) == (4, 7)
+    validate_output([cue], 10)
 
 
 @pytest.mark.parametrize('start,end', [(-1, 2), (2, 1), (0, math.nan), (0, math.inf), (0, 11)])
@@ -150,8 +151,7 @@ def test_manual_edits_survive_cut_change_and_review(caption_project):
     project = save_edits(project, manager, rows, CaptionStyle(), True)
     project = confirm_timeline(project, manager, [Decision(start=4, end=5, kind='manual', reason='test', selected=True, confirmed=True)])
     assert project.subtitles.cues[-1].text == '再安排實際預算。'
-    with pytest.raises(VideoError, match='確認'):
-        delivery_cues(project)
+    assert delivery_cues(project)[-1].text == '再安排實際預算。'
     mapped = map_captions(project.subtitles, project.timelines[-1])
     rows = editable(mapped)
     rows[-1]['text'] = '實際預算。'

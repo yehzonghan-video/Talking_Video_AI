@@ -14,7 +14,7 @@ def timestamp(seconds, *, ass=False):
 
 
 def srt(cues, duration):
-    validate_output(cues, duration, require_reviewed=True)
+    validate_output(cues, duration)
     return '\n\n'.join(f'{i}\n{timestamp(c.start)} --> {timestamp(c.end)}\n{html.escape(c.text, quote=False)}'
                         for i, c in enumerate(cues, 1)) + ('\n' if cues else '')
 
@@ -44,7 +44,7 @@ def ass_text(cue, emphasis):
 
 
 def ass(cues, style, font, width, height, duration):
-    validate_output(cues, duration, require_reviewed=True)
+    validate_output(cues, duration)
     res_y = round(1080 * height / width)
     margin = round(res_y * style.bottom_percent / 100)
     header = f'''[Script Info]

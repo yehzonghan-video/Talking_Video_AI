@@ -114,7 +114,9 @@ def delivery_cues(project):
     if not project.subtitles:
         return []
     cues = map_captions(project.subtitles, project.timelines[-1])
-    validate_output(cues, time_map(project.timelines[-1])[-1].output_end, require_reviewed=True)
+    # A low-confidence boundary is a visible editing hint, not a reason to
+    # prevent delivery.  Invalid times, overlaps and empty text still fail.
+    validate_output(cues, time_map(project.timelines[-1])[-1].output_end)
     return cues
 
 
