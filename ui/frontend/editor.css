@@ -1,0 +1,410 @@
+.tva-editor {
+  font:
+    14px/1.5 system-ui,
+    "Microsoft JhengHei",
+    "Noto Sans CJK TC",
+    sans-serif;
+  color: #223d33;
+  background: #fff;
+  border: 1px solid #dbe3de;
+  border-radius: 16px;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.tva-editor * {
+  box-sizing: border-box;
+}
+.tva-editor button,
+.tva-editor input,
+.tva-editor select,
+.tva-editor textarea {
+  font: inherit;
+}
+.tva-editor button {
+  cursor: pointer;
+  border: 1px solid #c8d5cd;
+  border-radius: 8px;
+  background: #fff;
+  color: #284a3c;
+  padding: 7px 12px;
+  min-height: 36px;
+}
+.tva-editor button:hover {
+  background: #edf5ef;
+}
+.tva-editor button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.tva-editor .primary {
+  background: #376b59;
+  color: #fff;
+  border-color: #376b59;
+}
+.tva-editor button:focus-visible,
+.tva-editor textarea:focus-visible {
+  outline: 3px solid #e0ba46;
+  outline-offset: 2px;
+}
+.tva-editor .toolbar,
+.tva-editor .controls,
+.tva-editor .actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.tva-editor .toolbar {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.tva-editor .status {
+  font-size: 12px;
+  color: #62766a;
+}
+.tva-editor .notice {
+  background: #eef5f0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  margin: 8px 0;
+  white-space: pre-line;
+}
+.tva-editor .error {
+  background: #fff0ed;
+  color: #a03425;
+}
+.tva-editor .workspace {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.25fr) minmax(250px, 1fr);
+  gap: 16px;
+}
+.tva-editor .preview {
+  background: #f5f7f5;
+  border-radius: 12px;
+  padding: 10px;
+  min-width: 0;
+}
+.tva-editor .screen {
+  position: relative;
+  background: #000;
+  margin: 0 auto;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.tva-editor video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.tva-editor .overlay {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  text-align: center;
+  font-weight: 700;
+  line-height: 1.16;
+  color: white;
+  white-space: pre-line;
+  pointer-events: none;
+  -webkit-text-stroke-color: #000;
+  paint-order: stroke fill;
+  font-family: "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
+}
+.tva-editor .overlay .yellow {
+  color: #ff0;
+}
+.tva-editor .controls {
+  margin-top: 9px;
+}
+.tva-editor .seek {
+  flex: 1;
+  min-width: 90px;
+}
+.tva-editor .clock {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+.tva-editor .hint {
+  color: #687a70;
+  font-size: 12px;
+  margin: 6px 0;
+}
+.tva-editor .inspector {
+  min-width: 0;
+}
+.tva-editor .tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.tva-editor .tabs button[aria-selected="true"] {
+  background: #e2eee6;
+  border-color: #376b59;
+}
+.tva-editor label {
+  display: block;
+  margin: 8px 0 4px;
+}
+.tva-editor textarea,
+.tva-editor input[type="text"],
+.tva-editor input[type="number"],
+.tva-editor select {
+  width: 100%;
+  border: 1px solid #bacabe;
+  background: #fff;
+  color: #243e32;
+  border-radius: 7px;
+  padding: 7px;
+}
+.tva-editor textarea {
+  min-height: 86px;
+  resize: vertical;
+}
+.tva-editor .row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.tva-editor .row > * {
+  flex: 1;
+  min-width: 0;
+}
+.tva-editor .row input[type="checkbox"] {
+  flex: 0;
+}
+.tva-editor .raw {
+  white-space: pre-wrap;
+  color: #607368;
+  font-size: 13px;
+  background: #f5f7f5;
+  padding: 8px;
+  border-radius: 7px;
+  max-height: 100px;
+  overflow: auto;
+}
+.tva-editor .badge {
+  font-size: 12px;
+  padding: 2px 6px;
+  background: #edf2ec;
+  border-radius: 5px;
+}
+.tva-editor .correction-card {
+  padding: 10px;
+  margin-bottom: 8px;
+  border: 1px solid #e0e7df;
+  border-radius: 8px;
+}
+.tva-editor .correction-list {
+  max-height: 350px;
+  overflow: auto;
+}
+.tva-editor .overview {
+  position: relative;
+  height: 34px;
+  background: #dcebdd;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.tva-editor .cut {
+  position: absolute;
+  top: 1px;
+  height: 32px;
+  min-width: 5px;
+  border: 1px solid #b86460;
+  background: #f4ccc6;
+  padding: 0;
+  border-radius: 3px;
+}
+.tva-editor .cut.silence {
+  background: #cfd3d2;
+  border-color: #888;
+}
+.tva-editor .cut.removed {
+  background: repeating-linear-gradient(
+    135deg,
+    #b86460,
+    #b86460 4px,
+    #edbdb5 4px,
+    #edbdb5 8px
+  );
+}
+.tva-editor .cut.silence.removed {
+  background: repeating-linear-gradient(
+    135deg,
+    #888,
+    #888 4px,
+    #d9dcda 4px,
+    #d9dcda 8px
+  );
+}
+.tva-editor .cut.selected {
+  outline: 3px solid #e0ba46;
+  outline-offset: -3px;
+}
+.tva-editor .timeline-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.tva-editor .timeline {
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+  border: 1px solid #dbe3de;
+  border-radius: 8px;
+  padding: 0 5px;
+  margin-top: 8px;
+  touch-action: pan-x;
+}
+.tva-editor .tracks {
+  position: relative;
+  height: 145px;
+  min-width: 100%;
+}
+.tva-editor .ruler {
+  height: 23px;
+  position: relative;
+  border-bottom: 1px solid #d9e2da;
+}
+.tva-editor .tick {
+  position: absolute;
+  top: 2px;
+  color: #6c7e71;
+  font-size: 11px;
+  border-left: 1px solid #c9d6cc;
+  padding-left: 3px;
+}
+.tva-editor .keep-track {
+  position: relative;
+  height: 34px;
+  margin-top: 7px;
+}
+.tva-editor .keep {
+  position: absolute;
+  height: 30px;
+  background: #cce3d1;
+  border: 1px solid #80ac8f;
+  border-radius: 4px;
+  overflow: hidden;
+  color: #45694d;
+  font-size: 11px;
+  padding: 4px;
+  white-space: nowrap;
+}
+.tva-editor .caption-track {
+  position: relative;
+  height: 62px;
+  margin-top: 5px;
+}
+.tva-editor .cue {
+  position: absolute;
+  top: 2px;
+  height: 54px;
+  min-width: 5px;
+  background: #dcebe8;
+  border: 1px solid #72a494;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  touch-action: none;
+}
+.tva-editor .cue.active {
+  background: #c5dfd5;
+  border: 2px solid #376b59;
+}
+.tva-editor .cue.review {
+  background: #fff0c5;
+  border-color: #c09326;
+}
+.tva-editor .cue-text {
+  display: block;
+  padding: 4px 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  pointer-events: none;
+  white-space: pre-wrap;
+}
+.tva-editor .handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background: #65917e;
+  cursor: ew-resize;
+  z-index: 2;
+}
+.tva-editor .handle.start {
+  left: 0;
+}
+.tva-editor .handle.end {
+  right: 0;
+}
+.tva-editor .playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #df633c;
+  pointer-events: none;
+  z-index: 5;
+}
+.tva-editor .overview-head {
+  width: 2px;
+  top: 0;
+  bottom: 0;
+  position: absolute;
+  background: #213f32;
+  pointer-events: none;
+}
+.tva-editor .cue-list {
+  max-height: 145px;
+  overflow: auto;
+  margin-top: 8px;
+}
+.tva-editor .cue-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.tva-editor details {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #5e7367;
+}
+.tva-editor .metrics {
+  white-space: pre-wrap;
+}
+.tva-editor .hidden {
+  display: none !important;
+}
+.tva-editor .output-result video {
+  max-height: 360px;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: auto;
+}
+@media (max-width: 700px) {
+  .tva-editor {
+    padding: 10px;
+  }
+  .tva-editor .workspace {
+    grid-template-columns: 1fr;
+  }
+  .tva-editor .screen {
+    max-height: 330px;
+  }
+  .tva-editor .toolbar {
+    align-items: flex-start;
+  }
+  .tva-editor .actions button {
+    padding: 5px 8px;
+  }
+}

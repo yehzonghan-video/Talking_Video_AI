@@ -68,8 +68,7 @@ def backup_section(manager, assets, project):
         st.caption('JSON 包含腳本快照、辨識結果、剪輯建議及全部已確認的版本；影片不在 JSON 內，請另外保存原片。')
         source = assets.source(project)
         if source.exists():
-            with source.open('rb') as media:
-                st.download_button('下載原始影片備份', media, file_name='原始影片' + project.source_suffix, mime='video/mp4' if project.source_suffix == '.mp4' else 'video/quicktime')
+            st.download_button('下載原始影片備份', lambda: source.read_bytes(), file_name='原始影片' + project.source_suffix, mime='video/mp4' if project.source_suffix == '.mp4' else 'video/quicktime', on_click='ignore')
         upload = st.file_uploader('匯入剪輯專案 JSON（建立獨立副本）', type=['json'], key='video_restore')
         if upload and st.button('驗證並恢復剪輯專案'):
             select_project(manager.import_metadata(upload.getvalue()))
@@ -200,8 +199,7 @@ def export_section(manager, assets, project):
         if output.exists():
             st.success('MP4 已輸出，可預覽及下載。')
             st.video(str(output), width=360)
-            with output.open('rb') as video:
-                st.download_button('下載 MP4', video, file_name=filename(project.title), mime='video/mp4')
+            st.download_button('下載 MP4', lambda: output.read_bytes(), file_name=filename(project.title), mime='video/mp4', on_click='ignore')
 
 
 def render(s):
@@ -248,10 +246,23 @@ def render(s):
             reattach_source(project, upload, upload.name, assets)
             st.rerun()
         return
-    with st.expander('原始影片與片段試聽', expanded=True):
-        start = st.number_input('從原片第幾秒開始預覽', min_value=0.0, max_value=max(0.0, project.media.duration - .01), value=0.0, step=.1)
-        st.video(str(source), start_time=start, width=360)
-    analysis_section(s, manager, assets, project)
-    decisions_editor(project, manager, assets)
-    render_subtitles(project, manager, assets)
-    export_section(manager, assets, project)
+    advanced = st.checkbox('顯示進階表格與原片試聽', value=False, key='advanced_video_' + project.id)
+    if advanced:
+        with st.expander('原始影片與片段試聽', expanded=True):
+            start = st.number_input('從原片第幾秒開始預覽', min_value=0.0, max_value=max(0.0, project.media.duration - .01), value=0.0, step=.1)
+            st.video(str(source), start_time=start, width=360)
+        analysis_section(s, manager, assets, project)
+        decisions_editor(project, manager, assets)
+        render_subtitles(project, manager, assets)
+        export_section(manager, assets, project)
+    else:
+        with st.expander('語音分析與重新分析', expanded=not bool(project.transcript)):
+            analysis_section(s, manager, assets, project)
+        if project.subtitles is None and project.transcript and project.transcript.segments:
+            st.caption('先沿用辨識產生字幕，再於影片上修字、校正與調整樣式。')
+            if st.button('由現有辨識產生字幕', type='primary'):
+                from core.subtitles.service import generate
+                generate(project, manager)
+                st.rerun()
+        from ui.visual_editor import render as render_visual_editor
+        render_visual_editor(project, manager, assets)

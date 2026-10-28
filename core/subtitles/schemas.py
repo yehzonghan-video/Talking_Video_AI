@@ -26,6 +26,18 @@ class SourceCaption(StrictModel):
     atoms: list[Atom] = Field(default_factory=list, max_length=2000)
     manual: bool = False
     review_reason: str = ''
+    correction_ref: str = ''
+
+
+class ScriptCorrection(StrictModel):
+    id: str
+    cue_id: str
+    original: str
+    proposed: str
+    reference: str
+    status: Literal['auto', 'review', 'keep']
+    decision: Literal['accepted', 'rejected', 'pending']
+    reason: str
 
 
 class CaptionStyle(StrictModel):
@@ -41,6 +53,8 @@ class SubtitleTrack(StrictModel):
     enabled: bool = True
     style: CaptionStyle = Field(default_factory=CaptionStyle)
     note: str = ''
+    original_cues: list[SourceCaption] = Field(default_factory=list, max_length=3000)
+    corrections: list[ScriptCorrection] = Field(default_factory=list, max_length=3000)
 
 
 class OutputCaption(Span):

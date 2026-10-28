@@ -25,6 +25,9 @@ def environment_check(assets):
             st.download_button('下載字幕測試 MP4', result['captioned'], file_name='字幕環境測試.mp4', mime='video/mp4', on_click='ignore')
             st.download_button('下載無字幕測試 MP4', result['plain'], file_name='無字幕環境測試.mp4', mime='video/mp4', on_click='ignore')
             st.download_button('下載測試 SRT', result['srt'], file_name='字幕環境測試.srt', mime='application/x-subrip', on_click='ignore')
+            if 'source' in result and st.checkbox('試用視覺化編輯器（合成示範）'):
+                from ui.editor_environment import render as render_demo
+                render_demo(result, assets.root)
 
 
 def render(project, manager, assets):
@@ -87,13 +90,13 @@ def render(project, manager, assets):
     with st.expander('字幕時間映射與重新產生'):
         st.dataframe([{'原片開始': p.source_start, '原片結束': p.source_end, '輸出開始': p.output_start, '輸出結束': p.output_end} for p in time_map(timeline)], hide_index=True)
         st.caption('修改或恢復剪輯後，字幕依原片座標自動重新映射。若切到人工修字，需重新確認該段。')
-        replace = st.checkbox('確認以現有辨識重新產生字幕，取代目前修字與分段', key='replace_' + key)
+        replace = st.checkbox('以現有辨識重新產生未修改字幕，保留人工修字', key='replace_' + key)
         if st.button('重新產生字幕', disabled=not replace):
             generate(project, manager, replace=True)
             st.rerun()
         if any(c.review_reason and not c.atoms for c in track.cues):
             st.caption('部分長句只有整句時間。優先保留現有資料；只有按下以下按鈕才補充聲學辨識，不會呼叫 Gemini。')
-            supplement = st.checkbox('確認補充缺少的詞語時間並取代字幕修字', key='supplement_' + key)
+            supplement = st.checkbox('確認補充缺少的詞語時間，保留人工修字', key='supplement_' + key)
             if st.button('補充字幕詞語時間', disabled=not supplement):
                 from core.transcription.provider import FasterWhisperProvider
                 from core.subtitles.alignment import supplement as supplement_alignment

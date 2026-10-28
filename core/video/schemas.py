@@ -126,6 +126,8 @@ class VideoProject(StrictModel):
     output_timeline: int | None = None
     subtitles: SubtitleTrack | None = None
     output_signature: str = ''
+    editor_last_operation: str = ''
+    editor_last_hash: str = ''
 
     @model_validator(mode='after')
     def timeline_versions(self):

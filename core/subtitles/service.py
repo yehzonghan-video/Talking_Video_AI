@@ -21,6 +21,29 @@ def generate(project, manager, replace=False, transcript=None):
     updated.subtitles = SubtitleTrack(cues=from_transcript(transcript), source_signature=transcript_signature(transcript),
         revision=old.revision + 1 if old else 1, style=old.style if old else CaptionStyle(),
         enabled=old.enabled if old else True, note='沿用聲學辨識；字幕未呼叫 Gemini。')
+    from core.subtitles.correction import prepare_track
+    if old and replace:
+        manual = [c.model_copy(deep=True) for c in old.cues if c.manual]
+        if manual:
+            untouched = []
+            for cue in updated.subtitles.cues:
+                if cue.atoms:
+                    atoms = [a for a in cue.atoms if not any(min(a.end, s.end) > max(a.start, s.start) for m in manual for s in m.spans)]
+                    untouched.extend(cue_from_atoms(group) for group in group_atoms(atoms))
+                elif not any(min(s.end, t.end) > max(s.start, t.start) for s in cue.spans for m in manual for t in m.spans):
+                    untouched.append(cue)
+            updated.subtitles.cues = sorted(untouched + manual, key=lambda c: c.spans[0].start)
+            updated.subtitles.note += ' 已保留人工修改與人工確認的字幕。'
+    updated.subtitles = prepare_track(updated.subtitles, project.script_snapshot)
+    if old and replace:
+        preserved = {c.id for c in updated.subtitles.cues if c.manual}
+        existing = {c.id for c in updated.subtitles.corrections}
+        updated.subtitles.corrections.extend(c.model_copy(deep=True) for c in old.corrections if c.cue_id in preserved and c.id not in existing)
+        original_ids = {c.id for c in updated.subtitles.original_cues}
+        raw_by_id = {c.id: c for c in old.original_cues}
+        updated.subtitles.original_cues = [raw_by_id[c.id].model_copy(deep=True) if c.id in preserved and c.id in raw_by_id else c
+                                           for c in updated.subtitles.original_cues]
+        updated.subtitles.original_cues.extend(c.model_copy(deep=True) for c in old.original_cues if c.id in preserved and c.id not in original_ids)
     return manager.save(updated)
 
 

@@ -112,3 +112,9 @@ def test_cloud_smoke_uses_disposable_media_and_cleans_all_temporary_files(tmp_pa
     assert '00:00:01,100' in result['srt'].decode('utf-8-sig')
     assert result['duration'] == pytest.approx(2, abs=.15) and result['frame'].startswith(b'\x89PNG')
     assert not list(tmp_path.iterdir())
+    from ui.editor_environment import create_demo
+    from core.editor.service import document
+    project, manager, assets = create_demo(result, tmp_path / 'isolated-editor')
+    assert manager.list()[0].id == project.id
+    assert assets.source(project).read_bytes() == result['source']
+    assert document(project)['sources'] and len(project.timelines) == 1

@@ -21,6 +21,9 @@ def prepare(monkeypatch, repo, catalog, fake, tmp_path):
 def open_video():
     at = AppTest.from_file(str(ROOT / 'app.py'), default_timeout=30).run()
     by_label(at.radio, '前往').set_value('AI 影片粗剪').run()
+    advanced = [c for c in at.checkbox if c.label == '顯示進階表格與原片試聽']
+    if advanced:
+        advanced[0].check().run()
     assert not at.exception
     return at
 

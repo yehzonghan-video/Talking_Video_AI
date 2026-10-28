@@ -38,4 +38,5 @@ def inspect_environment(folder):
         render(source, plain, timeline, media, sha256(source))
         run('ffmpeg', ['-v', 'error', '-ss', '0.5', '-i', str(burned), '-vf', 'scale=360:-2', '-frames:v', '1', str(frame)])
         return {'font': font.family, 'captioned': burned.read_bytes(), 'plain': plain.read_bytes(),
-                'frame': frame.read_bytes(), 'srt': srt(cues, 2).encode('utf-8-sig'), 'duration': probe(burned).duration}
+                'frame': frame.read_bytes(), 'srt': srt(cues, 2).encode('utf-8-sig'), 'duration': probe(burned).duration,
+                'source': source.read_bytes(), 'transcript': transcript.model_dump(), 'media': media.model_dump()}
